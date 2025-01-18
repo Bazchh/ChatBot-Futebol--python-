@@ -29,12 +29,20 @@ class APIFootball:
         # Verificando e formatando os jogos
         if jogos["results"] > 0:
             for jogo in jogos["response"]:
-                data_jogo = jogo["fixture"]["date"]
-                # Convertendo para o horário de Brasília
-                hora_utc = datetime.strptime(data_jogo, "%Y-%m-%dT%H:%M:%S+00:00")
-                hora_brasilia = hora_utc.astimezone(tz_brasilia)
-                hora_jogo = hora_brasilia.strftime("%H:%M")
+                # Verificando o status do jogo, apenas "HT" (Halftime) será considerado
+                status_jogo = jogo["fixture"]["status"]["short"]
                 
+                # Considerando apenas os jogos que estão no primeiro tempo (status "HT")
+                if status_jogo != "HT":
+                    continue
+
+                data_jogo = jogo["fixture"]["date"]
+                # Convertendo para o horário UTC primeiro
+                hora_utc = datetime.strptime(data_jogo, "%Y-%m-%dT%H:%M:%S+00:00")
+                hora_utc = pytz.utc.localize(hora_utc)  # Localizando no fuso horário UTC
+                hora_brasilia = hora_utc.astimezone(tz_brasilia)  # Convertendo para o horário de Brasília
+                hora_jogo = hora_brasilia.strftime("%H:%M")  # Formato final da hora
+
                 time_casa = jogo["teams"]["home"]["name"]
                 time_fora = jogo["teams"]["away"]["name"]
                 fixture_id = jogo["fixture"]["id"]
