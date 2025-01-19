@@ -30,7 +30,7 @@ class APIFootball:
         # Verificando e formatando os jogos
         if jogos["results"] > 0:
             for jogo in jogos["response"]:
-                # Verificando o status do jogo, apenas "HT" (Halftime) será considerado
+                # Verificando o status do jogo, apenas "1H" (primeiro tempo em andamento)
                 status_jogo = jogo["fixture"]["status"]["short"]
                 
                 if status_jogo != "1H":
@@ -41,34 +41,48 @@ class APIFootball:
                 if tempo_elapsed < 37 or tempo_elapsed > 45:
                     continue
 
-                # Obtendo os gols no primeiro tempo
-                gols_casa = jogo["score"]["halftime"]["home"]
-                gols_fora = jogo["score"]["halftime"]["away"]
-
-                # Filtrando os jogos com as condições solicitadas
-                if (gols_casa == 0 and gols_fora == 0) or (gols_casa == 1 and gols_fora == 1):
-                    jogos_filtrados.append(jogo)
-                elif gols_casa == 0 and gols_fora == 1:
-                    time_casa = jogo["teams"]["home"]["name"]
-                    time_fora = jogo["teams"]["away"]["name"]
-                    odds = self.obter_odds(jogo["fixture"]["id"])
-                    if odds and odds.get("home") <= 1.50:
-                        # Verificando se a posse de bola ou os chutes do time adversário atendem os critérios
-                        if self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
-                            jogos_filtrados.append(jogo)
-                elif gols_casa == 1 and gols_fora == 0:
-                    time_casa = jogo["teams"]["home"]["name"]
-                    time_fora = jogo["teams"]["away"]["name"]
-                    odds = self.obter_odds(jogo["fixture"]["id"])
-                    if odds and odds.get("away") <= 1.50:
-                        # Verificando se a posse de bola ou os chutes do time adversário atendem os critérios
-                        if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
-                            jogos_filtrados.append(jogo)
-
+                jogos_filtrados.append(jogo)
         else:
             print("Não há jogos no intervalo no momento.")
 
         return jogos_filtrados  # Retornando os jogos filtrados
+    
+    def verificar_criterios(self, jogo):
+        """
+        Verifica os critérios de aposta para um jogo específico e retorna o time favorito se os critérios forem atendidos.
+        """
+        time_casa = jogo["teams"]["home"]["name"]
+        time_fora = jogo["teams"]["away"]["name"]
+        fixture_id = jogo["fixture"]["id"]
+
+        # Obtendo os gols no primeiro tempo
+        gols_casa = jogo["score"]["halftime"]["home"]
+        gols_fora = jogo["score"]["halftime"]["away"]
+
+        # Critérios de jogo empatado em 0x0 ou 1x1
+        if (gols_casa == 0 and gols_fora == 0) or (gols_casa == 1 and gols_fora == 1):
+            odds = self.obter_odds(fixture_id)
+            if odds:
+                if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home") and odds.get("home") <= 1.50:
+                    return time_casa
+                elif self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away") and odds.get("away") <= 1.50:
+                    return time_fora
+
+        # Critérios de jogo 0x1 ou 1x0
+        if gols_casa == 0 and gols_fora == 1:
+            odds = self.obter_odds(fixture_id)
+            if odds and odds.get("away") <= 1.50:
+                if self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
+                    return time_fora  # Time favorito é o visitante
+
+        elif gols_casa == 1 and gols_fora == 0:
+            odds = self.obter_odds(fixture_id)
+            if odds and odds.get("home") <= 1.50:
+                if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
+                    return time_casa  # Time favorito é o mandante
+
+        return None  # Nenhum time atende aos critérios
+
 
     def enviar_mensagem_telegram(self, mensagem):
         # Envia a mensagem para o chat do Telegram
