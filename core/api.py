@@ -2,6 +2,7 @@ import http.client
 import json
 from datetime import datetime
 import pytz
+from telegram import Bot
 
 class APIFootball:
     def __init__(self, api_key):
@@ -69,6 +70,9 @@ class APIFootball:
 
         return jogos_filtrados  # Retornando os jogos filtrados
 
+    def enviar_mensagem_telegram(self, mensagem):
+        # Envia a mensagem para o chat do Telegram
+        self.bot.send_message(chat_id=self.chat_id, text=mensagem)
 
     def posse_de_bola_suficiente(self, jogo, time):
         # Verificando se a chave 'response' existe
@@ -105,7 +109,6 @@ class APIFootball:
                         if chutes is not None and chutes >= 7:  # Verifica se o total de chutes é maior ou igual a 7
                             return True
         return False
-        
 
     def _processar_jogo(self, favorito, adversario, jogo):
         # Formatação da hora do jogo para o fuso horário de Brasília
@@ -211,6 +214,7 @@ class APIFootball:
                             odd_fora = next((item['odd'] for item in values if item['value'] == 'Away'), None)
                             return {"home": float(odd_casa), "away": float(odd_fora)}
         return None
+
 
     def analisar_media_gols_primeiro_tempo(self, favorito, adversario, jogo, hora_jogo):
         favorito_id = jogo["teams"]["home"]["id"] if jogo["teams"]["home"]["name"] == favorito else jogo["teams"]["away"]["id"]

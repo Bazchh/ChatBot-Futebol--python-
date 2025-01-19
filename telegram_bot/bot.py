@@ -14,10 +14,6 @@ class TelegramBot:
         self.chat_id = chat_id
         self.bot = Bot(token=self.telegram_token)
 
-    async def enviar_mensagem_boas_vindas(self):
-        mensagem_boas_vindas = "Olá, bem-vindo ao bot de futebol! Eu posso te ajudar com informações sobre os jogos de futebol e acompanhar jogos ao vivo. Fique ligado!"
-        await self.bot.send_message(chat_id=self.chat_id, text=mensagem_boas_vindas)
-
     async def enviar_jogos_do_dia(self):
         print("\n=== Enviando jogos do dia ===\n")
         jogos = self.api_football.listar_jogos_do_dia()  # Usando o método da APIFootball para pegar os jogos
@@ -54,11 +50,27 @@ class TelegramBot:
                 # Formatando a mensagem
                 mensagem = f"{time_casa} x {time_fora} - Hora: {hora_jogo}"
 
-                # Enviar a mensagem
+                # Verificando critérios de aposta
+                if self.verificar_criterios_aposta(jogo):
+                    aposta = f"APOSTA ENCONTRADA:\n\n{time_casa} x {time_fora}\nAposta: {time_casa} ou {time_fora} +0.5 gols HT\nBET NOW"
+                    # Enviar a mensagem de aposta
+                    await self.bot.send_message(chat_id=self.chat_id, text=aposta)
+
+                # Envia a mensagem dos jogos ao vivo
                 await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
 
         else:
             print("Não há jogos ao vivo no momento.")   
+
+    def verificar_criterios_aposta(self, jogo):
+        gols_casa = jogo["score"]["halftime"]["home"]
+        gols_fora = jogo["score"]["halftime"]["away"]
+
+        # Critérios de aposta (Exemplo: 0-0 ou 1-1 no primeiro tempo)
+        if (gols_casa == 0 and gols_fora == 0) or (gols_casa == 1 and gols_fora == 1):
+            return True
+        return False
+
 
 # Função para enviar a lista de jogos às 15h15 e começar a monitorar os jogos ao vivo
 async def job(api_football, telegram_bot):
@@ -73,7 +85,7 @@ async def start_scheduler(api_football, telegram_bot):
     scheduler = AsyncIOScheduler()  # Usando AsyncIOScheduler
 
     # Agendar a execução do job
-    scheduler.add_job(job, 'cron', hour=17, minute=54, args=[api_football, telegram_bot])
+    scheduler.add_job(job, 'cron', hour=18, minute=44, args=[api_football, telegram_bot])
 
     # Iniciar o agendador
     scheduler.start()
