@@ -33,7 +33,12 @@ class APIFootball:
                 # Verificando o status do jogo, apenas "HT" (Halftime) será considerado
                 status_jogo = jogo["fixture"]["status"]["short"]
                 
-                if status_jogo != "1H":
+                if status_jogo != "1T":
+                    continue
+
+                # Verificando se o tempo de jogo está entre 37 e 45 minutos (inclusive)
+                tempo_elapsed = jogo["fixture"]["status"]["elapsed"]
+                if tempo_elapsed < 37 or tempo_elapsed > 45:
                     continue
 
                 # Obtendo os gols no primeiro tempo
@@ -57,6 +62,7 @@ class APIFootball:
                         self._processar_jogo(favorito=time_casa, adversario=time_fora, jogo=jogo)
         else:
             print("Não há jogos no intervalo no momento.")
+
 
     def _processar_jogo(self, favorito, adversario, jogo):
         # Formatação da hora do jogo para o fuso horário de Brasília
@@ -202,5 +208,5 @@ class APIFootball:
 if __name__ == "__main__":
     api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
     api_football = APIFootball(api_key)
-    #api_football.listar_jogos_HT()
+    api_football.listar_jogos_HT()
     api_football.listar_jogos_do_dia()
