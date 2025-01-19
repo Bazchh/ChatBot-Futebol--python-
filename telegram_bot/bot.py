@@ -1,120 +1,100 @@
-import requests
-from telegram import Bot
-from telegram.ext import Application, MessageHandler, filters
-from core.pre_match import PreMatch  # Supondo que você tenha uma classe PreMatch configurada
-from core.live_match import LiveMatch  # Supondo que você tenha uma classe Live configurada
-from core.api import APIFootballClient
 import asyncio
+import sys
+sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
+import pytz
 from datetime import datetime
+from apscheduler.schedulers.asyncio import AsyncIOScheduler  # Usando AsyncIOScheduler
+from telegram import Bot
+from core.api import APIFootball  # Certifique-se de que a classe APIFootball está no mesmo diretório
 
 class TelegramBot:
-    def __init__(self, api_key, group_id):
-        self.api_key = api_key
-        self.group_id = group_id
-        self.bot = Bot(token=self.api_key)
+    def __init__(self, api_football, telegram_token, chat_id):
+        self.api_football = api_football
+        self.telegram_token = telegram_token
+        self.chat_id = chat_id
+        self.bot = Bot(token=self.telegram_token)
 
-        # Usando a nova maneira de inicializar o bot com Application
-        self.application = Application.builder().token(self.api_key).build()
+    async def enviar_mensagem_boas_vindas(self):
+        mensagem_boas_vindas = "Olá, bem-vindo ao bot de futebol! Eu posso te ajudar com informações sobre os jogos de futebol e acompanhar jogos ao vivo. Fique ligado!"
+        await self.bot.send_message(chat_id=self.chat_id, text=mensagem_boas_vindas)
 
-        # Inicializando as classes de PreMatch e Live
-        self.api_client = APIFootballClient()  # A API do futebol deve ser configurada corretamente
-        self.pre_match = PreMatch(self.api_client)
-        self.live = LiveMatch(self.api_client)
+    async def enviar_jogos_do_dia(self):
+        print("\n=== Enviando jogos do dia ===\n")
+        jogos = self.api_football.listar_jogos_do_dia()  # Usando o método da APIFootball para pegar os jogos
 
-    def start(self):
-        # Configura o manipulador para mensagens de texto (sem comandos)
-        message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
+        if jogos:
+            mensagem = "Jogos de futebol de hoje:\n"
+            for jogo in jogos:
+                # Verificando se as chaves estão presentes
+                time_casa = jogo.get("time_casa", "Desconhecido")
+                time_fora = jogo.get("time_fora", "Desconhecido")
+                hora_jogo = jogo.get("hora_jogo", "Data não disponível")
+                
+                mensagem += f"{time_casa} x {time_fora} - Hora: {hora_jogo}\n"
 
-        # Em vez de acessar diretamente o 'dispatcher', usa-se diretamente 'add_handler'
-        self.application.add_handler(message_handler)
+            # Envia a mensagem no chat do Telegram
+            await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
 
-        # Inicia o bot de maneira assíncrona
-        self.application.run_polling()
+        else:
+            print("Não há jogos para hoje.")
 
-        # Chama a função de envio das partidas do dia de maneira assíncrona
-        asyncio.run(self.send_todays_matches())  # Faz a chamada assíncrona para as partidas de hoje
+    async def monitorar_jogos(self):
+        print("\n=== Monitorando jogos ao vivo no primeiro tempo ===\n")
+        jogos = self.api_football.listar_jogos_HT()  # Usando o método da APIFootball para monitorar os jogos ao vivo
 
-        # Inicia a atualização periódica para enviar alertas
-        asyncio.run(self.start_periodic_updates())  # Usamos asyncio aqui para garantir que as tarefas sejam assíncronas
+        if jogos:
+            for jogo in jogos:
+                time_casa = jogo["teams"]["home"]["name"]
+                time_fora = jogo["teams"]["away"]["name"]
+                hora_jogo = jogo["fixture"]["date"]
 
-    async def send_todays_matches(self):
-        """
-        Envia uma lista de todas as partidas do dia para o grupo assim que o bot iniciar.
-        """
-        # Obter a data atual no formato 'YYYY-MM-DD'
-        current_date = datetime.now().strftime("%Y-%m-%d")
+                # Convertendo o formato da hora para 'HH:MM' (hora e minuto)
+                hora_jogo = datetime.fromisoformat(hora_jogo).strftime('%H:%M')
 
-        # Obter todas as partidas do dia (não apenas as favoritas)
-        all_matches_data = self.api_client.make_request("fixtures", params={"date": current_date})
-        
-        if not all_matches_data or 'response' not in all_matches_data:
-            await self.send_message("Nenhuma partida encontrada para hoje.")
-            return
+                # Formatando a mensagem
+                mensagem = f"{time_casa} x {time_fora} - Hora: {hora_jogo}"
 
-        message = f"Partidas do dia {current_date}:\n"
+                # Enviar a mensagem
+                await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
 
-        for match in all_matches_data['response']:
-            home_team = match['teams']['home']['name']
-            away_team = match['teams']['away']['name']
-            
-            # Formatação da mensagem
-            message += f"{home_team} vs {away_team}\n"
-            message += "---------------------\n"
+        else:
+            print("Não há jogos ao vivo no momento.")   
 
-        # Enviar a mensagem com as partidas do dia
-        await self.send_message(message)
+# Função para enviar a lista de jogos às 15h15 e começar a monitorar os jogos ao vivo
+async def job(api_football, telegram_bot):
+    # Envia a lista de jogos às 15h15
+    await telegram_bot.enviar_jogos_do_dia()  
 
-    async def start_periodic_updates(self):
-        """
-        Inicia um loop assíncrono para enviar atualizações periódicas sobre jogos de futebol.
-        """
-        while True:
-            # Obter a data atual no formato 'YYYY-MM-DD'
-            current_date = datetime.now().strftime("%Y-%m-%d")
+    # Inicia o monitoramento dos jogos ao vivo
+    await telegram_bot.monitorar_jogos()  
 
-            # Buscar partidas ao vivo e pré-jogo
-            live_matches_data = self.api_client.make_request("fixtures", params={"live": "true"})
-            pre_match_matches = self.pre_match.get_favorite_matches(current_date)  # Usando a data atual
+async def start_scheduler(api_football, telegram_bot):
+    # Scheduler para rodar a função às 17h13 todos os dias
+    scheduler = AsyncIOScheduler()  # Usando AsyncIOScheduler
 
-            # Enviar alertas de partidas ao vivo
-            if live_matches_data:
-                live_matches = live_matches_data.get("response", [])
-                for match in live_matches:
-                    match_id = match.get("fixture", {}).get("id")
-                    if match_id:
-                        # Obter as estatísticas da partida ao vivo
-                        possession, total_shots = self.live.get_live_stats(match_id)
-                        if possession is not None and total_shots is not None:
-                            message = f"Partida ao vivo: {match['teams']['home']['name']} vs {match['teams']['away']['name']}\n"
-                            message += f"Posse de bola: {possession}%\nTotal de remates: {total_shots}\n"
-                            await self.send_message(message)
+    # Agendar a execução do job
+    scheduler.add_job(job, 'cron', hour=17, minute=54, args=[api_football, telegram_bot])
 
-            # Enviar alertas de partidas pré-jogo
-            for match in pre_match_matches:
-                message = f"Partida: {match['home_team']} vs {match['away_team']}\n"
-                message += "+0.5 gols HT\n"
-                message += f"Aposte no {match['home_team'] if match['odds'] < 1.50 else match['away_team']}\n"
-                message += "**BET NOW**"
-                await self.send_message(message)
+    # Iniciar o agendador
+    scheduler.start()
 
-            # Espera 30 minutos antes de buscar novos dados
-            await asyncio.sleep(1800)  # Usando asyncio.sleep para aguardar de maneira assíncrona
+    # Manter o loop ativo
+    await asyncio.Event().wait()  # Esse comando faz o loop rodar indefinidamente
 
-    async def send_message(self, message):
-        """
-        Envia uma mensagem para o grupo do Telegram.
-        :param message: A mensagem a ser enviada.
-        """
-        try:
-            await self.bot.send_message(chat_id=self.group_id, text=message)
-        except Exception as e:
-            print(f"Erro ao enviar mensagem para o grupo: {e}")
+def main():
+    # Definir sua chave da API e token do Telegram
+    api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
+    telegram_token = "7948020728:AAEzjLZzu58hLD6_cruXS6BUtwKl48RnVz8"  # Substitua com seu token do Telegram
+    chat_id = "-1002440594973"  # Substitua com o ID do chat para enviar as mensagens
 
-    def handle_message(self, update, context):
-        """
-        Função para lidar com mensagens, caso necessário.
-        (Você pode customizar conforme sua necessidade).
-        """
-        message = update.message.text
-        print(f"Recebida mensagem: {message}")
-        # Adicione o tratamento para mensagens recebidas, se necessário
+    # Inicializa a classe APIFootball
+    api_football = APIFootball(api_key)
+
+    # Inicializa a classe TelegramBot
+    telegram_bot = TelegramBot(api_football, telegram_token, chat_id)
+
+    # Rodar o scheduler usando asyncio.run()
+    asyncio.run(start_scheduler(api_football, telegram_bot))  # Utiliza asyncio.run() para executar o loop
+
+if __name__ == "__main__":
+    main()
