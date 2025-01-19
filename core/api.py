@@ -24,8 +24,7 @@ class APIFootball:
         # Convertendo o dado JSON
         jogos = json.loads(data.decode("utf-8"))
         
-        # Definindo o fuso horário de Brasília
-        tz_brasilia = pytz.timezone('America/Sao_Paulo')
+        jogos_filtrados = []  # Lista para armazenar os jogos filtrados
 
         # Verificando e formatando os jogos
         if jogos["results"] > 0:
@@ -47,52 +46,66 @@ class APIFootball:
 
                 # Filtrando os jogos com as condições solicitadas
                 if (gols_casa == 0 and gols_fora == 0) or (gols_casa == 1 and gols_fora == 1):
-                    self._processar_jogo(favorito=None, adversario=None, jogo=jogo)
+                    jogos_filtrados.append(jogo)
                 elif gols_casa == 0 and gols_fora == 1:
                     time_casa = jogo["teams"]["home"]["name"]
                     time_fora = jogo["teams"]["away"]["name"]
                     odds = self.obter_odds(jogo["fixture"]["id"])
                     if odds and odds.get("home") <= 1.50:
-                        if self.posse_de_bola_suficiente(jogo, "away") or self.verificar_chutes(jogo, "away"):
-                            self._processar_jogo(favorito=time_fora, adversario=time_casa, jogo=jogo)
+                        # Verificando se a posse de bola ou os chutes do time adversário atendem os critérios
+                        if self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
+                            jogos_filtrados.append(jogo)
                 elif gols_casa == 1 and gols_fora == 0:
                     time_casa = jogo["teams"]["home"]["name"]
                     time_fora = jogo["teams"]["away"]["name"]
                     odds = self.obter_odds(jogo["fixture"]["id"])
                     if odds and odds.get("away") <= 1.50:
-                        if self.posse_de_bola_suficiente(jogo, "home") or self.verificar_chutes(jogo, "home"):
-                            self._processar_jogo(favorito=time_casa, adversario=time_fora, jogo=jogo)
+                        # Verificando se a posse de bola ou os chutes do time adversário atendem os critérios
+                        if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
+                            jogos_filtrados.append(jogo)
+
         else:
             print("Não há jogos no intervalo no momento.")
 
+        return jogos_filtrados  # Retornando os jogos filtrados
+
+
     def posse_de_bola_suficiente(self, jogo, time):
+        # Verificando se a chave 'response' existe
+        response = jogo.get("response", [])
+        
+        # Caso a chave 'response' não exista ou esteja vazia, retorna False
+        if not response:
+            return False
         
         # Verificando as estatísticas do jogo
-        for estatistica in jogo["response"]:
+        for estatistica in response:
             if estatistica["team"]["name"] == jogo["teams"][time]["name"]:
                 for item in estatistica["statistics"]:
                     if item["type"] == "Ball Possession":
                         posse_bola = item["value"]
-                        # Removendo o símbolo '%' e convertendo para número, se o valor estiver presente
                         if posse_bola is not None:
                             posse_bola_num = float(posse_bola.replace('%', ''))
-                            
-                            # Verificando se a posse de bola do time é suficiente
-                            if posse_bola_num >= 58:  # Por exemplo, 58% ou mais
+                            if posse_bola_num >= 58:
                                 return True
         return False
 
     def verificar_chutes(self, jogo, time):        
-
+        response = jogo.get("response", [])
+        
+        # Caso a chave 'response' não exista ou esteja vazia, retorna False
+        if not response:
+            return False
         # Verificando as estatísticas do jogo para o total de chutes
-        for estatistica in jogo["response"]:
-            if estatistica["team"]["name"] == jogo["teams"][time]["name"]:
-                for item in estatistica["statistics"]:
+        for estatisticas in response:
+            if estatisticas["team"]["name"] == jogo["teams"][time]["name"]:
+                for item in estatisticas["statistics"]:
                     if item["type"] == "Total Shots":
                         chutes = item["value"]
                         if chutes is not None and chutes >= 7:  # Verifica se o total de chutes é maior ou igual a 7
                             return True
         return False
+        
 
     def _processar_jogo(self, favorito, adversario, jogo):
         # Formatação da hora do jogo para o fuso horário de Brasília
@@ -110,6 +123,70 @@ class APIFootball:
 
         if favorito and adversario:
             self.analisar_media_gols_primeiro_tempo(favorito, adversario, jogo, hora_jogo)
+
+    def listar_jogos_do_dia(self):
+        print("\n=== Listando jogos programados para hoje (ainda não iniciados) ===\n")
+        headers = {
+            'x-rapidapi-host': self.host,
+            'x-rapidapi-key': self.api_key
+        }
+
+        # Obtendo a data de hoje em formato YYYY-MM-DD no UTC
+        data_atual = datetime.now(pytz.utc).strftime("%Y-%m-%d")
+
+        # Realizando a requisição para pegar todos os jogos do dia
+        self.conn.request(f"GET", f"/fixtures?date={data_atual}", headers=headers)
+        res = self.conn.getresponse()
+        data = res.read()
+
+        # Convertendo o dado JSON
+        jogos = json.loads(data.decode("utf-8"))
+
+        # Definindo o fuso horário de Brasília
+        tz_brasilia = pytz.timezone('America/Sao_Paulo')
+
+        # Obtendo a hora atual
+        hora_atual_utc = datetime.now(pytz.utc)
+
+        jogos_do_dia = []
+
+        # Verificando e formatando os jogos
+        if jogos["results"] > 0:
+            for jogo in jogos["response"]:
+                status_jogo = jogo["fixture"]["status"]["short"]
+
+                # Filtrando apenas jogos que ainda não começaram (status "NS")
+                if status_jogo != "NS":
+                    continue
+
+                # Obtendo a data e hora do jogo
+                data_jogo = jogo["fixture"]["date"]
+                hora_utc = datetime.strptime(data_jogo, "%Y-%m-%dT%H:%M:%S+00:00")
+                hora_utc = pytz.utc.localize(hora_utc)
+
+                # Verificando se o jogo já passou
+                if hora_utc < hora_atual_utc:
+                    continue
+
+                # Convertendo a hora para o fuso horário de Brasília
+                hora_brasilia = hora_utc.astimezone(tz_brasilia)
+                hora_jogo = hora_brasilia.strftime("%H:%M")
+
+                time_casa = jogo["teams"]["home"]["name"]
+                time_fora = jogo["teams"]["away"]["name"]
+                fixture_id = jogo["fixture"]["id"]
+
+                # Adicionando o jogo à lista
+                jogos_do_dia.append({
+                    "time_casa": time_casa,
+                    "time_fora": time_fora,
+                    "hora_jogo": hora_jogo,
+                    "fixture_id": fixture_id
+                })
+        else:
+            print("Não há jogos programados para hoje.")
+        
+        return jogos_do_dia
 
     def obter_odds(self, fixture_id):
         headers = {
@@ -166,21 +243,4 @@ class APIFootball:
 
             if len(jogos) > 0:
                 media_gols_primeiro_tempo = total_gols_primeiro_tempo / len(jogos)
-
-                if media_gols_primeiro_tempo > 1:
-                    self.gerar_mensagem_aposta(favorito, adversario, hora_jogo, media_gols_primeiro_tempo)
-
-    def gerar_mensagem_aposta(self, favorito, adversario, hora_jogo, media_gols_primeiro_tempo):
-        aposta = f"\n--- Recomendação de Aposta ---\n"
-        aposta += f"{favorito} vs {adversario}\n"
-        aposta += f"Média de gols no primeiro tempo: {media_gols_primeiro_tempo}\n"
-        aposta += f"Aposta recomendada: {favorito} - Mais de 1 gol no primeiro tempo\n"
-        aposta += f"Hora do jogo: {hora_jogo}\n"
-        print(aposta)
-
-
-# Exemplo de uso
-if __name__ == "__main__":
-    api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
-    api_football = APIFootball(api_key)
-    api_football.listar_jogos_HT()
+                print(f"Média de gols no primeiro tempo entre {favorito} e {adversario}: {media_gols_primeiro_tempo:.2f}")
