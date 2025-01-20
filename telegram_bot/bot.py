@@ -88,7 +88,6 @@ def health_check():
     return jsonify({"status": "running"}), 200
 
 
-
 def main():
     # Definir sua chave da API e token do Telegram
     api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
@@ -106,9 +105,11 @@ def main():
 
     # Configuração do Hypercorn
     config = Config()
-    config.bind = ["0.0.0.0:8080"]
+    # Usa a variável de ambiente PORT para permitir que o Cloud Run determine a porta
+    config.bind = ["0.0.0.0:" + os.getenv("PORT", "8080")]
+    
+    # Inicia o servidor com Hypercorn de forma assíncrona
     asyncio.run(serve(app, config))
 
 if __name__ == "__main__":
     main()
-
