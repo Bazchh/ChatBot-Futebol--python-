@@ -134,5 +134,5 @@ def main():
     loop.run_until_complete(serve(app, config))
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    asyncio.run(main())
 
