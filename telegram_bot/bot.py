@@ -1,3 +1,5 @@
+import sys
+sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 import asyncio
 import os
 from flask import Flask, jsonify

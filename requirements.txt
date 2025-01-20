@@ -3,3 +3,4 @@ python-telegram-bot==20.0   # Biblioteca para interação com o Telegram Bot
 python-dotenv==1.0.0        # Para carregar variáveis de ambiente do arquivo .env
 pytz
 apscheduler
+flask==2.1.1
