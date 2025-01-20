@@ -38,7 +38,6 @@ class TelegramBot:
         """Monitora jogos ao vivo no primeiro tempo e envia apostas encontradas."""
         print("\n=== Monitorando jogos ao vivo no primeiro tempo ===\n")
         jogos = self.api_football.listar_jogos_HT()
-
         if jogos:
             for jogo in jogos:
                 time_favorito = self.api_football.verificar_criterios(jogo)  # Obter o time favorito
@@ -52,18 +51,25 @@ class TelegramBot:
                         f"Aposta: {time_favorito} +0.5 gols HT\nBET NOW"
                     )
                     await self.enviar_mensagem(aposta)
+                else:
+                    print("Jogo não satisfez os critérios")
         else:
             print("Não há jogos ao vivo no momento.")
+        
 
-async def job(api_football, telegram_bot):
+async def job_jogos_do_dia(api_football, telegram_bot):
     """Executa os jobs do bot."""
     await telegram_bot.enviar_jogos_do_dia()
+    
+async def job_monitorar(api_football, telegram_bot):
+    """Executa os jobs do bot."""
     await telegram_bot.monitorar_jogos()
 
 async def start_scheduler(api_football, telegram_bot):
     """Inicia o agendador para executar jobs."""
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(job, "cron", hour=19, minute=20, args=[api_football, telegram_bot])
+    scheduler.add_job(job_jogos_do_dia, "cron", hour=10, minute=0, args=[api_football, telegram_bot])
+    scheduler.add_job(job_monitorar,"interval",seconds=5,args=[api_football,telegram_bot])
     scheduler.start()
     await asyncio.Event().wait()
 

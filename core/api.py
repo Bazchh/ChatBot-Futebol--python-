@@ -24,27 +24,19 @@ class APIFootball:
 
         # Convertendo o dado JSON
         jogos = json.loads(data.decode("utf-8"))
-        
         jogos_filtrados = []  # Lista para armazenar os jogos filtrados
-
         # Verificando e formatando os jogos
         if jogos["results"] > 0:
             for jogo in jogos["response"]:
                 # Verificando o status do jogo, apenas "1H" (primeiro tempo em andamento)
                 status_jogo = jogo["fixture"]["status"]["short"]
-                
-                if status_jogo != "1H":
-                    continue
-
-                # Obtendo o tempo de jogo para garantir que estamos no intervalo
                 tempo_elapsed = jogo["fixture"]["status"]["elapsed"]
-                if tempo_elapsed < 37 or tempo_elapsed > 45:
+
+                if status_jogo != "1H" or not (37 <= tempo_elapsed <= 45):
                     continue
 
                 jogos_filtrados.append(jogo)
-        else:
-            print("Não há jogos no intervalo no momento.")
-
+        
         return jogos_filtrados  # Retornando os jogos filtrados
     
     def verificar_criterios(self, jogo):
@@ -54,12 +46,12 @@ class APIFootball:
         time_casa = jogo["teams"]["home"]["name"]
         time_fora = jogo["teams"]["away"]["name"]
         fixture_id = jogo["fixture"]["id"]
-
         # Obtendo os gols no primeiro tempo
         gols_casa = jogo["score"]["halftime"]["home"]
         gols_fora = jogo["score"]["halftime"]["away"]
 
         # Critérios de jogo empatado em 0x0 ou 1x1
+        
         if (gols_casa == 0 and gols_fora == 0) or (gols_casa == 1 and gols_fora == 1):
             odds = self.obter_odds(fixture_id)
             if odds:
@@ -71,15 +63,17 @@ class APIFootball:
         # Critérios de jogo 0x1 ou 1x0
         if gols_casa == 0 and gols_fora == 1:
             odds = self.obter_odds(fixture_id)
-            if odds and odds.get("away") <= 1.50:
-                if self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
-                    return time_fora  # Time favorito é o visitante
+            print(odds)
+            if odds and odds.get("home") <= 1.50:
+                print(self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"))
+                if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
+                    return time_casa  # Time favorito é o visitante
 
         elif gols_casa == 1 and gols_fora == 0:
             odds = self.obter_odds(fixture_id)
-            if odds and odds.get("home") <= 1.50:
-                if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
-                    return time_casa  # Time favorito é o mandante
+            if odds and odds.get("away") <= 1.50:
+                if self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
+                    return time_fora  # Time favorito é o mandante
 
         return None  # Nenhum time atende aos critérios
 
@@ -216,7 +210,6 @@ class APIFootball:
         data = res.read()
         
         odds_data = json.loads(data.decode("utf-8"))
-
         if odds_data.get("results") > 0:
             bookmakers = odds_data["response"][0]["bookmakers"]
             for bookmaker in bookmakers:
@@ -228,7 +221,6 @@ class APIFootball:
                             odd_fora = next((item['odd'] for item in values if item['value'] == 'Away'), None)
                             return {"home": float(odd_casa), "away": float(odd_fora)}
         return None
-
 
     def analisar_media_gols_primeiro_tempo(self, favorito, adversario, jogo, hora_jogo):
         favorito_id = jogo["teams"]["home"]["id"] if jogo["teams"]["home"]["name"] == favorito else jogo["teams"]["away"]["id"]
