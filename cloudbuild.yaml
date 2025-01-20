@@ -2,4 +2,7 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/[able-yew-448413-b8]/[chatbot]', '.']
 images:
-- 'gcr.io/[able-yew-448413-b8]/[chatbot]'
+- 'gcr.io/able-yew-448413-b8/chatbot'
+
+
+
