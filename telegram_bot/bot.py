@@ -129,7 +129,8 @@ def main():
     config = Config()
     config.bind = ["0.0.0.0:" + os.getenv("PORT", "8080")]
 
-    # Inicia o servidor com Hypercorn de forma assíncrona
+    port = int(os.environ.get("PORT", 8080))  # Obtemos a porta da variável de ambiente ou usa 8080 por padrão
+    config.bind = f"0.0.0.0:{port}"  # Configura o Hypercorn para usar essa porta
     loop.run_until_complete(serve(app, config))
 
 if __name__ == "__main__":
