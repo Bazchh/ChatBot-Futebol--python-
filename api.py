@@ -31,7 +31,7 @@ class APIFootball:
                 status_jogo = jogo["fixture"]["status"]["short"]
                 tempo_elapsed = jogo["fixture"]["status"]["elapsed"]
 
-                if status_jogo != "1H" or not (37 <= tempo_elapsed <= 45):
+                if status_jogo != "1H" or tempo_elapsed is not None or not (37 <= tempo_elapsed <= 45):
                     continue
 
                 jogos_filtrados.append(jogo)
