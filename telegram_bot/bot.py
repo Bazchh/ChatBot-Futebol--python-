@@ -4,7 +4,8 @@ import asyncio
 import os
 from flask import Flask, jsonify
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from telegram import Bot
+from telegram import Bot, Update
+from telegram.ext import CommandHandler, Application
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 from pytz import timezone
 from hypercorn.asyncio import serve
@@ -18,6 +19,12 @@ class TelegramBot:
         self.telegram_token = telegram_token
         self.chat_id = chat_id
         self.bot = Bot(token=self.telegram_token)
+
+        # Criando o objeto Application para gerenciar os comandos
+        self.application = Application.builder().token(self.telegram_token).build()
+
+        # Adiciona o manipulador do comando /start
+        self.application.add_handler(CommandHandler("start", self.start_command))
 
     async def enviar_mensagem(self, mensagem):
         """Envia uma mensagem para o chat do Telegram."""
@@ -63,6 +70,10 @@ class TelegramBot:
                     print("Jogo não satisfez os critérios")
         else:
             print("Não há jogos ao vivo no momento.")
+
+    async def start_command(self, update: Update, context):
+        """Envia uma mensagem de resposta ao comando /start."""
+        await update.message.reply_text("Estou funcionando")
 
 
 async def job_jogos_do_dia(api_football, telegram_bot):
