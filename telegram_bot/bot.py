@@ -5,6 +5,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 from pytz import timezone
+from flask import Flask, jsonify
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
+
+app = Flask(__name__)
 
 class TelegramBot:
     def __init__(self, api_football, telegram_token, chat_id):
@@ -57,7 +62,6 @@ class TelegramBot:
                     print("Jogo não satisfez os critérios")
         else:
             print("Não há jogos ao vivo no momento.")
-        
 
 async def job_jogos_do_dia(api_football, telegram_bot):
     """Executa os jobs do bot."""
@@ -71,10 +75,14 @@ async def start_scheduler(api_football, telegram_bot):
     """Inicia o agendador para executar jobs."""
     scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
     scheduler.add_job(job_jogos_do_dia, "cron", hour=13, minute=44, args=[api_football, telegram_bot])
-    scheduler.add_job(job_monitorar,"interval",seconds=5,args=[api_football,telegram_bot])
+    scheduler.add_job(job_monitorar, "interval", seconds=5, args=[api_football, telegram_bot])
     scheduler.start()
     await asyncio.Event().wait()
 
+@app.route("/")
+def health_check():
+    """Endpoint para checar se o serviço está ativo."""
+    return jsonify({"status": "running"}), 200
 
 def main():
     # Definir sua chave da API e token do Telegram
@@ -88,8 +96,16 @@ def main():
     # Inicializa a classe TelegramBot
     telegram_bot = TelegramBot(api_football, telegram_token, chat_id)
 
-    # Rodar o scheduler usando asyncio.run()
-    asyncio.run(start_scheduler(api_football, telegram_bot))  # Utiliza asyncio.run() para executar o loop
+    # Inicia o scheduler em segundo plano
+    loop = asyncio.get_event_loop()
+    loop.create_task(start_scheduler(api_football, telegram_bot))
+
+    # Configuração do Hypercorn
+    config = Config()
+    config.bind = ["0.0.0.0:" + os.getenv("PORT", "8080")]
+
+    # Inicia o servidor com Hypercorn de forma assíncrona
+    loop.run_until_complete(serve(app, config))
 
 if __name__ == "__main__":
     main()
