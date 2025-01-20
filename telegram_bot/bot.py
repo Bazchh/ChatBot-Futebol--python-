@@ -1,10 +1,12 @@
 import asyncio
-import sys
-sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
+import os
+from flask import Flask, jsonify
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 from pytz import timezone
+
+app = Flask(__name__)  # Cria o servidor Flask
 
 class TelegramBot:
     def __init__(self, api_football, telegram_token, chat_id):
@@ -57,12 +59,12 @@ class TelegramBot:
                     print("Jogo não satisfez os critérios")
         else:
             print("Não há jogos ao vivo no momento.")
-        
+
 
 async def job_jogos_do_dia(api_football, telegram_bot):
     """Executa os jobs do bot."""
     await telegram_bot.enviar_jogos_do_dia()
-    
+
 async def job_monitorar(api_football, telegram_bot):
     """Executa os jobs do bot."""
     await telegram_bot.monitorar_jogos()
@@ -71,9 +73,15 @@ async def start_scheduler(api_football, telegram_bot):
     """Inicia o agendador para executar jobs."""
     scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
     scheduler.add_job(job_jogos_do_dia, "cron", hour=13, minute=44, args=[api_football, telegram_bot])
-    scheduler.add_job(job_monitorar,"interval",seconds=5,args=[api_football,telegram_bot])
+    scheduler.add_job(job_monitorar, "interval", seconds=5, args=[api_football, telegram_bot])
     scheduler.start()
     await asyncio.Event().wait()
+
+
+@app.route("/")
+def health_check():
+    """Endpoint para checar se o serviço está ativo."""
+    return jsonify({"status": "running"}), 200
 
 
 def main():
@@ -88,8 +96,13 @@ def main():
     # Inicializa a classe TelegramBot
     telegram_bot = TelegramBot(api_football, telegram_token, chat_id)
 
-    # Rodar o scheduler usando asyncio.run()
-    asyncio.run(start_scheduler(api_football, telegram_bot))  # Utiliza asyncio.run() para executar o loop
+    # Inicia o scheduler em segundo plano
+    asyncio.get_event_loop().create_task(start_scheduler(api_football, telegram_bot))
+
+    # Obtem a porta do ambiente ou usa 8080 como padrão
+    port = int(os.getenv("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
+
 
 if __name__ == "__main__":
     main()
