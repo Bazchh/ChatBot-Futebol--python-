@@ -4,6 +4,7 @@ sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
+import os
 from pytz import timezone
 from flask import Flask, jsonify
 from hypercorn.asyncio import serve
@@ -96,8 +97,11 @@ def main():
     # Inicializa a classe TelegramBot
     telegram_bot = TelegramBot(api_football, telegram_token, chat_id)
 
+    # Criar e configurar o loop de eventos
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)  # Define o novo loop como o loop atual
+
     # Inicia o scheduler em segundo plano
-    loop = asyncio.get_event_loop()
     loop.create_task(start_scheduler(api_football, telegram_bot))
 
     # Configuração do Hypercorn
