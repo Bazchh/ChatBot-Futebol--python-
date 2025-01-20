@@ -4,3 +4,4 @@ python-dotenv==1.0.0        # Para carregar variáveis de ambiente do arquivo .e
 pytz
 apscheduler
 flask==2.1.1
+hypercorn

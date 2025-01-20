@@ -13,5 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Expondo a porta que o aplicativo vai usar
 EXPOSE 8080
 
-# Definindo o comando para rodar a aplicação
-CMD ["python", "telegram_bot/bot.py"]
+# Definindo o comando para rodar a aplicação usando Hypercorn
+CMD ["hypercorn", "telegram_bot.bot:app", "--bind", "0.0.0.0:8080"]

@@ -7,6 +7,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 from pytz import timezone
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
 
 app = Flask(__name__)  # Cria o servidor Flask
 
@@ -86,6 +88,7 @@ def health_check():
     return jsonify({"status": "running"}), 200
 
 
+
 def main():
     # Definir sua chave da API e token do Telegram
     api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
@@ -101,10 +104,11 @@ def main():
     # Inicia o scheduler em segundo plano
     asyncio.get_event_loop().create_task(start_scheduler(api_football, telegram_bot))
 
-    # Obtem a porta do ambiente ou usa 8080 como padrão
-    port = int(os.getenv("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
-
+    # Configuração do Hypercorn
+    config = Config()
+    config.bind = ["0.0.0.0:8080"]
+    asyncio.run(serve(app, config))
 
 if __name__ == "__main__":
     main()
+
