@@ -6,7 +6,7 @@ from flask_sse import sse
 sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
-from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
+from api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 import os
 from pytz import timezone
 from hypercorn.config import Config

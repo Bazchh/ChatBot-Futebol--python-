@@ -2,7 +2,6 @@ import http.client
 import json
 from datetime import datetime
 import pytz
-from telegram import Bot
 
 class APIFootball:
     def __init__(self, api_key):

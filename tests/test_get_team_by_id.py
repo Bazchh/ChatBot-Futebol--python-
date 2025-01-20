@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 from datetime import datetime
-from core.api import APIFootballClient  # Substitua com o caminho correto para o seu módulo
+from api import APIFootballClient  # Substitua com o caminho correto para o seu módulo
 
 def test_get_all_matches_today():
     # Cria a instância do cliente da API
