@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import json
+import logging
 from flask import Flask, jsonify, Response
 from flask_sse import sse
 sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
@@ -11,6 +12,10 @@ import os
 from pytz import timezone
 from hypercorn.config import Config
 from hypercorn.asyncio import serve
+
+# Configuração de logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
 
 app = Flask(__name__)  # Cria o servidor Flask
 
@@ -29,12 +34,13 @@ class TelegramBot:
         """Envia uma mensagem para o chat do Telegram."""
         try:
             await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
+            logger.info(f"Mensagem enviada para {self.chat_id}: {mensagem}")
         except Exception as e:
-            print(f"Erro ao enviar mensagem: {e}")
+            logger.error(f"Erro ao enviar mensagem: {e}")
 
     async def enviar_jogos_do_dia(self):
         """Busca e envia a lista de jogos do dia."""
-        print("\n=== Enviando jogos do dia ===\n")
+        logger.info("\n=== Enviando jogos do dia ===\n")
         jogos = self.api_football.listar_jogos_do_dia()
         if jogos:
             mensagem = "Football games today:\n"
@@ -45,15 +51,15 @@ class TelegramBot:
                 mensagem += f"{time_casa} x {time_fora} - Time: {hora_jogo}\n"
             await self.enviar_mensagem(mensagem)
         else:
-            print("Não há jogos para hoje.")
+            logger.info("Não há jogos para hoje.")
 
     async def monitorar_jogos(self):
         """Monitora jogos ao vivo no primeiro tempo e envia apostas encontradas."""
-        print("\n=== Monitorando jogos ao vivo no primeiro tempo ===\n")
+        logger.info("\n=== Monitorando jogos ao vivo no primeiro tempo ===\n")
         jogos = self.api_football.listar_jogos_HT()
         if jogos:
             for jogo in jogos:
-                print("\n=== Listando jogos ao vivo no primeiro tempo 1H ===")
+                logger.info("\n=== Listando jogos ao vivo no primeiro tempo 1H ===")
                 time_favorito = self.api_football.verificar_criterios(jogo)  # Obter o time favorito
                 if time_favorito:  # Se houver um time favorito que atenda aos critérios
                     time_casa = jogo["teams"]["home"]["name"]
@@ -71,12 +77,12 @@ class TelegramBot:
                     with app.app_context():
                         sse.publish({"message": aposta}, type='update')
                 else:
-                    print("Jogo não satisfez os critérios")
+                    logger.info("Jogo não satisfez os critérios")
                     # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
                     with app.app_context():
                         sse.publish({"message": "Jogo não satisfez os critérios"}, type='update')
         else:
-            print("Não há jogos ao vivo no momento.")
+            logger.info("Não há jogos ao vivo no momento.")
 
 
 async def job_jogos_do_dia(api_football, telegram_bot):
@@ -104,7 +110,7 @@ def events():
             yield f"data: {json.dumps({'message': 'Aguardando atualizações'})}\n\n"
     return Response(generate(), content_type='text/event-stream')
 
-@app.route("/")
+@app.route("/health")
 def health_check():
     """Endpoint para checar se o serviço está ativo."""
     return jsonify({"status": "running"}), 200
@@ -135,4 +141,3 @@ def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
