@@ -4,8 +4,7 @@ import asyncio
 import os
 from flask import Flask, jsonify
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from telegram import Bot, Update
-from telegram.ext import CommandHandler, Application
+from telegram import Bot
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 from pytz import timezone
 from hypercorn.asyncio import serve
@@ -19,12 +18,6 @@ class TelegramBot:
         self.telegram_token = telegram_token
         self.chat_id = chat_id
         self.bot = Bot(token=self.telegram_token)
-
-        # Criando o objeto Application para gerenciar os comandos
-        self.application = Application.builder().token(self.telegram_token).build()
-
-        # Adiciona o manipulador do comando /start
-        self.application.add_handler(CommandHandler("start", self.start_command))
 
     async def enviar_mensagem(self, mensagem):
         """Envia uma mensagem para o chat do Telegram."""
@@ -71,36 +64,29 @@ class TelegramBot:
         else:
             print("Não há jogos ao vivo no momento.")
 
-    async def start_command(self, update: Update, context):
-        """Envia uma mensagem de resposta ao comando /start."""
-        await update.message.reply_text("Estou funcionando")
-
 
 async def job_jogos_do_dia(api_football, telegram_bot):
-    """Executa os jobs do bot."""
+    """Executa os jobs do bot.""" 
     await telegram_bot.enviar_jogos_do_dia()
 
 async def job_monitorar(api_football, telegram_bot):
-    """Executa os jobs do bot."""
+    """Executa os jobs do bot.""" 
     await telegram_bot.monitorar_jogos()
 
 async def start_scheduler(api_football, telegram_bot):
-    """Inicia o agendador para executar jobs."""
+    """Inicia o agendador para executar jobs.""" 
     scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
     scheduler.add_job(job_jogos_do_dia, "cron", hour=13, minute=44, args=[api_football, telegram_bot])
     scheduler.add_job(job_monitorar, "interval", seconds=5, args=[api_football, telegram_bot])
     scheduler.start()
     await asyncio.Event().wait()
 
-
 @app.route("/")
 def health_check():
-    """Endpoint para checar se o serviço está ativo."""
+    """Endpoint para checar se o serviço está ativo.""" 
     return jsonify({"status": "running"}), 200
 
-
 def main():
-    # Definir sua chave da API e token do Telegram
     api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
     telegram_token = "8195835290:AAHnsVeIY_fS_Nmi9tkKl_e9JskMoZ4y1Zk"  # Substitua com seu token do Telegram
     chat_id = "-1002279145550"  # Substitua com o ID do chat para enviar as mensagens
@@ -110,6 +96,9 @@ def main():
 
     # Inicializa a classe TelegramBot
     telegram_bot = TelegramBot(api_football, telegram_token, chat_id)
+
+    # Envia uma mensagem ao iniciar
+    asyncio.get_event_loop().create_task(telegram_bot.enviar_mensagem("Starting analysis"))
 
     # Inicia o scheduler em segundo plano
     asyncio.get_event_loop().create_task(start_scheduler(api_football, telegram_bot))
