@@ -21,5 +21,5 @@ async def get_chat_id(api_key):
             print(f"Chat ID: {update.message.chat.id} - Texto da mensagem: {update.message.text}")
 
 if __name__ == "__main__":
-    api_key = '7948020728:AAEzjLZzu58hLD6_cruXS6BUtwKl48RnVz8'  # Substitua pelo seu token
+    api_key = '8195835290:AAHnsVeIY_fS_Nmi9tkKl_e9JskMoZ4y1Zk'  # Substitua pelo seu token
     asyncio.run(get_chat_id(api_key))

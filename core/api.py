@@ -123,14 +123,16 @@ class APIFootball:
         data_jogo = jogo["fixture"]["date"]
         hora_utc = datetime.strptime(data_jogo, "%Y-%m-%dT%H:%M:%S+00:00")
         hora_utc = pytz.utc.localize(hora_utc)
-        hora_brasilia = hora_utc.astimezone(pytz.timezone('America/Sao_Paulo'))
-        hora_jogo = hora_brasilia.strftime("%H:%M")
+        hora_londres = hora_utc.astimezone(pytz.timezone('Europe/London'))
+        hora_jogo = hora_londres.strftime("%H:%M")
+
+
 
         time_casa = jogo["teams"]["home"]["name"]
         time_fora = jogo["teams"]["away"]["name"]
         fixture_id = jogo["fixture"]["id"]
         
-        print(f"{time_casa} x {time_fora} - Hora: {hora_jogo} - id {fixture_id}")
+        print(f"{time_casa} x {time_fora} - Time: {hora_jogo} - id {fixture_id}")
 
         if favorito and adversario:
             self.analisar_media_gols_primeiro_tempo(favorito, adversario, jogo, hora_jogo)
@@ -152,9 +154,6 @@ class APIFootball:
 
         # Convertendo o dado JSON
         jogos = json.loads(data.decode("utf-8"))
-
-        # Definindo o fuso horário de Brasília
-        tz_brasilia = pytz.timezone('America/Sao_Paulo')
 
         # Obtendo a hora atual
         hora_atual_utc = datetime.now(pytz.utc)
@@ -180,8 +179,8 @@ class APIFootball:
                     continue
 
                 # Convertendo a hora para o fuso horário de Brasília
-                hora_brasilia = hora_utc.astimezone(tz_brasilia)
-                hora_jogo = hora_brasilia.strftime("%H:%M")
+                hora_londres = hora_utc.astimezone(pytz.timezone('Europe/London'))
+                hora_jogo = hora_londres.strftime("%H:%M")
 
                 time_casa = jogo["teams"]["home"]["name"]
                 time_fora = jogo["teams"]["away"]["name"]

@@ -4,6 +4,7 @@ sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
+from pytz import timezone
 
 class TelegramBot:
     def __init__(self, api_football, telegram_token, chat_id):
@@ -24,12 +25,12 @@ class TelegramBot:
         print("\n=== Enviando jogos do dia ===\n")
         jogos = self.api_football.listar_jogos_do_dia()
         if jogos:
-            mensagem = "Jogos de futebol de hoje:\n"
+            mensagem = "Football games today:\n"
             for jogo in jogos:
                 time_casa = jogo.get("time_casa", "Desconhecido")
                 time_fora = jogo.get("time_fora", "Desconhecido")
                 hora_jogo = jogo.get("hora_jogo", "Data não disponível")
-                mensagem += f"{time_casa} x {time_fora} - Hora: {hora_jogo}\n"
+                mensagem += f"{time_casa} x {time_fora} - Time: {hora_jogo}\n"
             await self.enviar_mensagem(mensagem)
         else:
             print("Não há jogos para hoje.")
@@ -46,9 +47,10 @@ class TelegramBot:
                     time_fora = jogo["teams"]["away"]["name"]
 
                     aposta = (
-                        f"APOSTA ENCONTRADA:\n\n"
+                        f"BET FOUND:\n\n"
                         f"{time_casa} x {time_fora}\n"
-                        f"Aposta: {time_favorito} +0.5 gols HT\nBET NOW"
+                        f"Site: Bwin\n"
+                        f"Bet on team: {time_favorito} +0.5 gols HT\n\nBET NOW"
                     )
                     await self.enviar_mensagem(aposta)
                 else:
@@ -67,8 +69,8 @@ async def job_monitorar(api_football, telegram_bot):
 
 async def start_scheduler(api_football, telegram_bot):
     """Inicia o agendador para executar jobs."""
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(job_jogos_do_dia, "cron", hour=10, minute=0, args=[api_football, telegram_bot])
+    scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
+    scheduler.add_job(job_jogos_do_dia, "cron", hour=13, minute=44, args=[api_football, telegram_bot])
     scheduler.add_job(job_monitorar,"interval",seconds=5,args=[api_football,telegram_bot])
     scheduler.start()
     await asyncio.Event().wait()
@@ -77,8 +79,8 @@ async def start_scheduler(api_football, telegram_bot):
 def main():
     # Definir sua chave da API e token do Telegram
     api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
-    telegram_token = "7948020728:AAEzjLZzu58hLD6_cruXS6BUtwKl48RnVz8"  # Substitua com seu token do Telegram
-    chat_id = "-1002440594973"  # Substitua com o ID do chat para enviar as mensagens
+    telegram_token = "8195835290:AAHnsVeIY_fS_Nmi9tkKl_e9JskMoZ4y1Zk"  # Substitua com seu token do Telegram
+    chat_id = "-1002279145550"  # Substitua com o ID do chat para enviar as mensagens
 
     # Inicializa a classe APIFootball
     api_football = APIFootball(api_key)
