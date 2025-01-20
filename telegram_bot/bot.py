@@ -49,7 +49,7 @@ class TelegramBot:
                     aposta = (
                         f"BET FOUND:\n\n"
                         f"{time_casa} x {time_fora}\n"
-                        f"Site: Bwin\n"
+                        f"Site: www.orbitxch.com\n"
                         f"Bet on team: {time_favorito} +0.5 gols HT\n\nBET NOW"
                     )
                     await self.enviar_mensagem(aposta)
