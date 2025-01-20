@@ -1,16 +1,16 @@
 import asyncio
 import sys
+from flask import Flask, jsonify, Response
+from flask_sse import sse
 sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 import os
 from pytz import timezone
-from flask import Flask, jsonify
-from hypercorn.asyncio import serve
-from hypercorn.config import Config
 
-app = Flask(__name__)
+app = Flask(__name__)  # Cria o servidor Flask
+app.register_blueprint(sse, url_prefix='/stream')  # Registra o blueprint do SSE
 
 class TelegramBot:
     def __init__(self, api_football, telegram_token, chat_id):
@@ -47,6 +47,7 @@ class TelegramBot:
         jogos = self.api_football.listar_jogos_HT()
         if jogos:
             for jogo in jogos:
+                print("\n=== Listando jogos ao vivo no primeiro tempo 1H ===")
                 time_favorito = self.api_football.verificar_criterios(jogo)  # Obter o time favorito
                 if time_favorito:  # Se houver um time favorito que atenda aos critérios
                     time_casa = jogo["teams"]["home"]["name"]
@@ -59,8 +60,13 @@ class TelegramBot:
                         f"Bet on team: {time_favorito} +0.5 gols HT\n\nBET NOW"
                     )
                     await self.enviar_mensagem(aposta)
+
+                    # Envia a mensagem de atualização via SSE
+                    sse.publish({"message": aposta}, type='update')
                 else:
                     print("Jogo não satisfez os critérios")
+                    # Envia a mensagem de atualização via SSE
+                    sse.publish({"message": "Jogo não satisfez os critérios"}, type='update')
         else:
             print("Não há jogos ao vivo no momento.")
 
@@ -85,6 +91,15 @@ def health_check():
     """Endpoint para checar se o serviço está ativo."""
     return jsonify({"status": "running"}), 200
 
+@app.route("/events")
+def events():
+    """Rota SSE para receber as atualizações em tempo real."""
+    def generate():
+        # Este gerador envia eventos SSE para o cliente
+        while True:
+            yield f"data: {json.dumps({'message': 'Aguardando atualizações'})}\n\n"
+    return Response(generate(), content_type='text/event-stream')
+
 def main():
     # Definir sua chave da API e token do Telegram
     api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
@@ -97,11 +112,8 @@ def main():
     # Inicializa a classe TelegramBot
     telegram_bot = TelegramBot(api_football, telegram_token, chat_id)
 
-    # Criar e configurar o loop de eventos
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)  # Define o novo loop como o loop atual
-
     # Inicia o scheduler em segundo plano
+    loop = asyncio.get_event_loop()
     loop.create_task(start_scheduler(api_football, telegram_bot))
 
     # Configuração do Hypercorn
