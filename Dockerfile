@@ -1,17 +1,20 @@
-# Usando uma imagem base
+# Usando uma imagem base do Python
 FROM python:3.9-slim
 
-# Definindo o diretório de trabalho no container
+# Definindo o diretório de trabalho
 WORKDIR /app
 
-# Copiando os arquivos da aplicação para dentro do container
-COPY . /app
+# Copiar o arquivo de dependências para a imagem
+COPY requirements.txt /app/
 
-# Instalando as dependências
+# Instalar as dependências
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expondo a porta que o aplicativo vai usar
+# Copiar o código para a imagem
+COPY . /app/
+
+# Definir a porta que o container vai expor
 EXPOSE 8080
 
-# Definindo o comando para rodar a aplicação usando Hypercorn
-CMD ["hypercorn", "telegram_bot.bot:app", "--bind", "0.0.0.0:8080"]
+# Definir o comando de execução do servidor
+CMD ["hypercorn", "bot:app", "--bind", "0.0.0.0:8080"]

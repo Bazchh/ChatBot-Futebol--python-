@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import json
 from flask import Flask, jsonify, Response
 from flask_sse import sse
 sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
@@ -8,8 +9,13 @@ from telegram import Bot
 from core.api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 import os
 from pytz import timezone
+from hypercorn.config import Config
+from hypercorn.asyncio import serve
 
 app = Flask(__name__)  # Cria o servidor Flask
+
+# Configuração do Redis
+app.config["REDIS_URL"] = os.getenv("REDIS_URL", "redis://localhost:6379/0")  # A URL de conexão com o Redis
 app.register_blueprint(sse, url_prefix='/stream')  # Registra o blueprint do SSE
 
 class TelegramBot:
@@ -61,14 +67,17 @@ class TelegramBot:
                     )
                     await self.enviar_mensagem(aposta)
 
-                    # Envia a mensagem de atualização via SSE
-                    sse.publish({"message": aposta}, type='update')
+                    # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
+                    with app.app_context():
+                        sse.publish({"message": aposta}, type='update')
                 else:
                     print("Jogo não satisfez os critérios")
-                    # Envia a mensagem de atualização via SSE
-                    sse.publish({"message": "Jogo não satisfez os critérios"}, type='update')
+                    # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
+                    with app.app_context():
+                        sse.publish({"message": "Jogo não satisfez os critérios"}, type='update')
         else:
             print("Não há jogos ao vivo no momento.")
+
 
 async def job_jogos_do_dia(api_football, telegram_bot):
     """Executa os jobs do bot."""
@@ -86,11 +95,6 @@ async def start_scheduler(api_football, telegram_bot):
     scheduler.start()
     await asyncio.Event().wait()
 
-@app.route("/")
-def health_check():
-    """Endpoint para checar se o serviço está ativo."""
-    return jsonify({"status": "running"}), 200
-
 @app.route("/events")
 def events():
     """Rota SSE para receber as atualizações em tempo real."""
@@ -99,6 +103,11 @@ def events():
         while True:
             yield f"data: {json.dumps({'message': 'Aguardando atualizações'})}\n\n"
     return Response(generate(), content_type='text/event-stream')
+
+@app.route("/")
+def health_check():
+    """Endpoint para checar se o serviço está ativo."""
+    return jsonify({"status": "running"}), 200
 
 def main():
     # Definir sua chave da API e token do Telegram

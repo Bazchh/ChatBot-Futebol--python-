@@ -6,3 +6,4 @@ apscheduler==3.8.1             # Biblioteca para agendamento de tarefas
 flask==2.3.2                   # Biblioteca para a criação da API
 hypercorn==0.14.0              # Servidor ASGI para o Flask
 werkzeug>=2.3.3                  # Versão do werkzeug compatível com o Flask 2.1.1
+flask_sse
