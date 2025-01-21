@@ -125,6 +125,7 @@ def events():
 @app.route("/health")
 def health_check():
     """Endpoint para checar se o serviço está ativo."""
+    logger.info("Acessando o endpoint /health para verificação de integridade")
     return jsonify({"status": "running"}), 200
 
 async def main():
