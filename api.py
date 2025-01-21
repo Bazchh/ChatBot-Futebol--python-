@@ -83,8 +83,6 @@ class APIFootball:
         return None  # Nenhum time atende aos critérios
 
 
-        return None  # Nenhum time atende aos critérios
-
     def posse_de_bola_suficiente(self, jogo, time):
         # Verificando se a chave 'response' existe
         response = jogo.get("response", [])

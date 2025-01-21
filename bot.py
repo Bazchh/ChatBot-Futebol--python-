@@ -81,13 +81,9 @@ class TelegramBot:
                     await self.enviar_mensagem(aposta)
 
                     # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
-                    with app.app_context():
-                        sse.publish({"message": aposta}, type='update')
                 else:
                     logger.info("Jogo não satisfez os critérios")
                     # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
-                    with app.app_context():
-                        sse.publish({"message": "Jogo não satisfez os critérios"}, type='update')
                         
         else:
             logger.info("Não há jogos ao vivo no momento.")
@@ -104,10 +100,18 @@ async def job_monitorar(api_football, telegram_bot):
 async def start_scheduler(api_football, telegram_bot):
     """Inicia o agendador para executar jobs."""
     scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
-    scheduler.add_job(job_jogos_do_dia, "cron", hour=13, minute=44, args=[api_football, telegram_bot])
+    
+    # Adiciona os jobs ao agendador
+    scheduler.add_job(job_jogos_do_dia, "cron", hour=10, minute=0, args=[api_football, telegram_bot])
     scheduler.add_job(job_monitorar, "interval", seconds=5, args=[api_football, telegram_bot])
+    
+    # Inicia o agendador
     scheduler.start()
-    await asyncio.Event().wait()
+
+    # Mantém o agendador rodando indefinidamente
+    while True:
+        await asyncio.sleep(10)  # Dorme por 60 segundos, mas mantém o agendador ativo
+
 
 @app.route("/events")
 def events():
