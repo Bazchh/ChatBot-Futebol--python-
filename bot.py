@@ -1,15 +1,27 @@
 import asyncio
+import sys
 import json
 import logging
+from flask import Flask, jsonify, Response
+from flask_sse import sse
+sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 import os
 from pytz import timezone
+from hypercorn.config import Config
+from hypercorn.asyncio import serve
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
+
+app = Flask(__name__)  # Cria o servidor Flask
+
+# Configuração do Redis
+app.config["REDIS_URL"] = os.getenv("REDIS_URL", "redis://localhost:6379/0")  # A URL de conexão com o Redis
+app.register_blueprint(sse, url_prefix='/stream')  # Registra o blueprint do SSE
 
 class TelegramBot:
     def __init__(self, api_football, telegram_token, chat_id):
@@ -52,6 +64,7 @@ class TelegramBot:
         """Monitora jogos ao vivo no primeiro tempo e envia apostas encontradas."""
         logger.info("\n=== Monitorando jogos ao vivo no primeiro tempo ===\n")
         jogos = self.api_football.listar_jogos_HT()
+        print(jogos)
         if jogos:
             for jogo in jogos:
                 logger.info("\n=== Listando jogos ao vivo no primeiro tempo 1H ===")
@@ -67,8 +80,15 @@ class TelegramBot:
                         f"Bet on team: {time_favorito} +0.5 gols HT\n\nBET NOW"
                     )
                     await self.enviar_mensagem(aposta)
+
+                    # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
+                    with app.app_context():
+                        sse.publish({"message": aposta}, type='update')
                 else:
                     logger.info("Jogo não satisfez os critérios")
+                    # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
+                    with app.app_context():
+                        sse.publish({"message": "Jogo não satisfez os critérios"}, type='update')
         else:
             logger.info("Não há jogos ao vivo no momento.")
 
@@ -89,6 +109,20 @@ async def start_scheduler(api_football, telegram_bot):
     scheduler.start()
     await asyncio.Event().wait()
 
+@app.route("/events")
+def events():
+    """Rota SSE para receber as atualizações em tempo real."""
+    def generate():
+        # Este gerador envia eventos SSE para o cliente
+        while True:
+            yield f"data: {json.dumps({'message': 'Aguardando atualizações'})}\n\n"
+    return Response(generate(), content_type='text/event-stream')
+
+@app.route("/health")
+def health_check():
+    """Endpoint para checar se o serviço está ativo."""
+    return jsonify({"status": "running"}), 200
+
 async def main():
     # Definir sua chave da API e token do Telegram
     api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
@@ -104,8 +138,14 @@ async def main():
     # Inicia o scheduler em segundo plano
     asyncio.create_task(start_scheduler(api_football, telegram_bot))
 
-    # Aguarda o evento infinito
-    await asyncio.Event().wait()
+    # Configuração do Hypercorn
+    config = Config()
+    port = int(os.environ.get("PORT", 8080))  # Obtém a porta da variável de ambiente ou usa 8080 por padrão
+    config.bind = [f"0.0.0.0:{port}"]  # Configura o Hypercorn para usar essa porta
+
+    # Inicia o servidor Hypercorn
+    await serve(app, config)
 
 if __name__ == "__main__":
     asyncio.run(main())
+
