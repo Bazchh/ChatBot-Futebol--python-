@@ -1,27 +1,15 @@
 import asyncio
-import sys
 import json
 import logging
-from flask import Flask, jsonify, Response
-from flask_sse import sse
-sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
 import os
 from pytz import timezone
-from hypercorn.config import Config
-from hypercorn.asyncio import serve
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
-
-app = Flask(__name__)  # Cria o servidor Flask
-
-# Configuração do Redis
-app.config["REDIS_URL"] = os.getenv("REDIS_URL", "redis://localhost:6379/0")  # A URL de conexão com o Redis
-app.register_blueprint(sse, url_prefix='/stream')  # Registra o blueprint do SSE
 
 class TelegramBot:
     def __init__(self, api_football, telegram_token, chat_id):
@@ -31,10 +19,17 @@ class TelegramBot:
         self.bot = Bot(token=self.telegram_token)
 
     async def enviar_mensagem(self, mensagem):
-        """Envia uma mensagem para o chat do Telegram."""
+        """Envia uma mensagem para o chat do Telegram, dividindo-a se for muito longa."""
         try:
-            await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
-            logger.info(f"Mensagem enviada para {self.chat_id}: {mensagem}")
+            max_length = 4096  # Limite de caracteres permitido pelo Telegram
+            if len(mensagem) > max_length:
+                partes = [mensagem[i:i + max_length] for i in range(0, len(mensagem), max_length)]
+                for parte in partes:
+                    await self.bot.send_message(chat_id=self.chat_id, text=parte)
+                    logger.info(f"Mensagem enviada em partes para {self.chat_id}: {parte}")
+            else:
+                await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
+                logger.info(f"Mensagem enviada para {self.chat_id}: {mensagem}")
         except Exception as e:
             logger.error(f"Erro ao enviar mensagem: {e}")
 
@@ -72,15 +67,8 @@ class TelegramBot:
                         f"Bet on team: {time_favorito} +0.5 gols HT\n\nBET NOW"
                     )
                     await self.enviar_mensagem(aposta)
-
-                    # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
-                    with app.app_context():
-                        sse.publish({"message": aposta}, type='update')
                 else:
                     logger.info("Jogo não satisfez os critérios")
-                    # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
-                    with app.app_context():
-                        sse.publish({"message": "Jogo não satisfez os critérios"}, type='update')
         else:
             logger.info("Não há jogos ao vivo no momento.")
 
@@ -101,21 +89,7 @@ async def start_scheduler(api_football, telegram_bot):
     scheduler.start()
     await asyncio.Event().wait()
 
-@app.route("/events")
-def events():
-    """Rota SSE para receber as atualizações em tempo real."""
-    def generate():
-        # Este gerador envia eventos SSE para o cliente
-        while True:
-            yield f"data: {json.dumps({'message': 'Aguardando atualizações'})}\n\n"
-    return Response(generate(), content_type='text/event-stream')
-
-@app.route("/health")
-def health_check():
-    """Endpoint para checar se o serviço está ativo."""
-    return jsonify({"status": "running"}), 200
-
-def main():
+async def main():
     # Definir sua chave da API e token do Telegram
     api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
     telegram_token = "8195835290:AAHnsVeIY_fS_Nmi9tkKl_e9JskMoZ4y1Zk"  # Substitua com seu token do Telegram
@@ -128,16 +102,10 @@ def main():
     telegram_bot = TelegramBot(api_football, telegram_token, chat_id)
 
     # Inicia o scheduler em segundo plano
-    loop = asyncio.get_event_loop()
-    loop.create_task(start_scheduler(api_football, telegram_bot))
+    asyncio.create_task(start_scheduler(api_football, telegram_bot))
 
-    # Configuração do Hypercorn
-    config = Config()
-    config.bind = ["0.0.0.0:" + os.getenv("PORT", "8080")]
-
-    port = int(os.environ.get("PORT", 8080))  # Obtemos a porta da variável de ambiente ou usa 8080 por padrão
-    config.bind = f"0.0.0.0:{port}"  # Configura o Hypercorn para usar essa porta
-    loop.run_until_complete(serve(app, config))
+    # Aguarda o evento infinito
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     asyncio.run(main())

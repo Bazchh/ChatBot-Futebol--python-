@@ -31,7 +31,7 @@ class APIFootball:
                 status_jogo = jogo["fixture"]["status"]["short"]
                 tempo_elapsed = jogo["fixture"]["status"]["elapsed"]
 
-                if status_jogo != "1H" or tempo_elapsed is not None or not (37 <= tempo_elapsed <= 45):
+                if status_jogo != "1H" or tempo_elapsed is not None or not (35 <= tempo_elapsed <= 45):
                     continue
 
                 jogos_filtrados.append(jogo)
@@ -50,36 +50,39 @@ class APIFootball:
         gols_fora = jogo["score"]["halftime"]["away"]
 
         # Critérios de jogo empatado em 0x0 ou 1x1
-        
         if (gols_casa == 0 and gols_fora == 0) or (gols_casa == 1 and gols_fora == 1):
             odds = self.obter_odds(fixture_id)
             if odds:
-                if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home") and odds.get("home") <= 1.50:
-                    return time_casa
-                elif self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away") and odds.get("away") <= 1.50:
-                    return time_fora
+                if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
+                    chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
+                    if chances_favorito is not None and chances_favorito >= 0.75:
+                        return time_casa  # Time favorito é o mandante
+                elif self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
+                    chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
+                    if chances_favorito is not None and chances_favorito >= 0.75:
+                        return time_fora  # Time favorito é o visitante
 
         # Critérios de jogo 0x1 ou 1x0
         if gols_casa == 0 and gols_fora == 1:
             odds = self.obter_odds(fixture_id)
-            print(odds)
-            if odds and odds.get("home") <= 1.50:
-                print(self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"))
+            if odds and odds.get("home") <= 1.80:
                 if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
-                    return time_casa  # Time favorito é o visitante
+                    chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
+                    if chances_favorito is not None and chances_favorito >= 0.75:
+                        return time_casa  # Time favorito é o mandante
 
         elif gols_casa == 1 and gols_fora == 0:
             odds = self.obter_odds(fixture_id)
-            if odds and odds.get("away") <= 1.50:
+            if odds and odds.get("away") <= 1.80:
                 if self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
-                    return time_fora  # Time favorito é o mandante
+                    chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
+                    if chances_favorito is not None and chances_favorito >= 0.75:
+                        return time_fora  # Time favorito é o visitante
 
         return None  # Nenhum time atende aos critérios
 
 
-    def enviar_mensagem_telegram(self, mensagem):
-        # Envia a mensagem para o chat do Telegram
-        self.bot.send_message(chat_id=self.chat_id, text=mensagem)
+        return None  # Nenhum time atende aos critérios
 
     def posse_de_bola_suficiente(self, jogo, time):
         # Verificando se a chave 'response' existe
@@ -116,25 +119,6 @@ class APIFootball:
                         if chutes is not None and chutes >= 7:  # Verifica se o total de chutes é maior ou igual a 7
                             return True
         return False
-
-    def _processar_jogo(self, favorito, adversario, jogo):
-        # Formatação da hora do jogo para o fuso horário de Brasília
-        data_jogo = jogo["fixture"]["date"]
-        hora_utc = datetime.strptime(data_jogo, "%Y-%m-%dT%H:%M:%S+00:00")
-        hora_utc = pytz.utc.localize(hora_utc)
-        hora_londres = hora_utc.astimezone(pytz.timezone('Europe/London'))
-        hora_jogo = hora_londres.strftime("%H:%M")
-
-
-
-        time_casa = jogo["teams"]["home"]["name"]
-        time_fora = jogo["teams"]["away"]["name"]
-        fixture_id = jogo["fixture"]["id"]
-        
-        print(f"{time_casa} x {time_fora} - Time: {hora_jogo} - id {fixture_id}")
-
-        if favorito and adversario:
-            self.analisar_media_gols_primeiro_tempo(favorito, adversario, jogo, hora_jogo)
 
     def listar_jogos_do_dia(self):
         print("\n=== Listando jogos programados para hoje (ainda não iniciados) ===\n")
@@ -203,7 +187,7 @@ class APIFootball:
             'x-rapidapi-key': self.api_key
         }
 
-        self.conn.request(f"GET", f"/odds?fixture={fixture_id}&bookmaker=6", headers=headers)
+        self.conn.request(f"GET", f"/odds?fixture={fixture_id}&bookmaker=3", headers=headers)
         res = self.conn.getresponse()
         data = res.read()
         
@@ -211,7 +195,7 @@ class APIFootball:
         if odds_data.get("results") > 0:
             bookmakers = odds_data["response"][0]["bookmakers"]
             for bookmaker in bookmakers:
-                if bookmaker["id"] == 6:  # Bwin
+                if bookmaker["id"] == 3:  #betfair
                     for bet in bookmaker["bets"]:
                         if bet["name"] == "Home/Away":
                             values = bet["values"]
@@ -219,36 +203,47 @@ class APIFootball:
                             odd_fora = next((item['odd'] for item in values if item['value'] == 'Away'), None)
                             return {"home": float(odd_casa), "away": float(odd_fora)}
         return None
-
-    def analisar_media_gols_primeiro_tempo(self, favorito, adversario, jogo, hora_jogo):
-        favorito_id = jogo["teams"]["home"]["id"] if jogo["teams"]["home"]["name"] == favorito else jogo["teams"]["away"]["id"]
-        adversario_id = jogo["teams"]["away"]["id"] if jogo["teams"]["home"]["name"] == favorito else jogo["teams"]["home"]["id"]
-
+    
+    def chances_de_gol_HT(self, favorito, adversario, jogo, hora_jogo):
+        # Obtendo os dados do time favorito e adversário
+        time_casa = jogo["teams"]["home"]["name"]
+        time_fora = jogo["teams"]["away"]["name"]
+        favorito_id = jogo["teams"]["home"]["id"] if time_casa == favorito else jogo["teams"]["away"]["id"]
+        adversario_id = jogo["teams"]["away"]["id"] if time_casa == favorito else jogo["teams"]["home"]["id"]
+        
+        # Realizando a requisição para pegar as estatísticas do time favorito
         headers = {
             'x-rapidapi-host': self.host,
             'x-rapidapi-key': self.api_key
         }
 
-        self.conn.request("GET", f"/fixtures/headtohead?h2h={favorito_id}-{adversario_id}", headers=headers)
+        # Obtendo as estatísticas de gols do time favorito
+        self.conn.request(f"GET", f"/teams/statistics?season=2019&team={favorito_id}&league=39", headers=headers)
         res = self.conn.getresponse()
         data = res.read()
 
-        h2h_data = json.loads(data.decode("utf-8"))
+        stats = json.loads(data.decode("utf-8"))
+        if stats.get("results") == 0:
+            print(f"Não há dados de estatísticas para o time {favorito}")
+            return None
 
-        if h2h_data["results"] > 0:
-            total_gols_primeiro_tempo = 0
-            jogos = h2h_data["response"]
+        # Obtendo o total de gols marcados no primeiro tempo
+        gols_primeiro_tempo = stats["response"]["goals"]["for"]["minute"]["0-15"]["total"] + stats["response"]["goals"]["for"]["minute"]["16-30"]["total"] + stats["response"]["goals"]["for"]["minute"]["31-45"]["total"]
+        
+        # Calculando o total de gols do time em toda a temporada
+        total_gols = stats["response"]["goals"]["for"]["total"]["total"]  # Total de gols no campeonato
+        if total_gols == 0:
+            print(f"{favorito} não marcou gols em toda a temporada!")
+            return None
+        
+        # Calculando a probabilidade de marcar no primeiro tempo
+        probabilidade_primeiro_tempo = gols_primeiro_tempo / total_gols if total_gols > 0 else 0  # Probabilidade relativa aos gols totais
 
-            for jogo in jogos:
-                if "score" in jogo and "halftime" in jogo["score"]:
-                    if jogo["teams"]["home"]["id"] == favorito_id:
-                        gols_primeiro_tempo = jogo["score"]["halftime"]["home"]
-                    elif jogo["teams"]["away"]["id"] == favorito_id:
-                        gols_primeiro_tempo = jogo["score"]["halftime"]["away"]
+        print(f"Probabilidade de {favorito} marcar no primeiro tempo: {probabilidade_primeiro_tempo * 100:.2f}%")
+        
+        # Considerando também a posse de bola e os chutes para refinar a probabilidade
+        if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
+            probabilidade_primeiro_tempo += 0.10  # Aumenta a chance se o time tiver boa posse de bola e muitos chutes
 
-                    if gols_primeiro_tempo is not None:
-                        total_gols_primeiro_tempo += gols_primeiro_tempo
-
-            if len(jogos) > 0:
-                media_gols_primeiro_tempo = total_gols_primeiro_tempo / len(jogos)
-                print(f"Média de gols no primeiro tempo entre {favorito} e {adversario}: {media_gols_primeiro_tempo:.2f}")
+        # Retornando a probabilidade final
+        return min(probabilidade_primeiro_tempo, 1.0)  # Limita a probabilidade a 100%
