@@ -64,7 +64,6 @@ class TelegramBot:
         """Monitora jogos ao vivo no primeiro tempo e envia apostas encontradas."""
         logger.info("\n=== Monitorando jogos ao vivo no primeiro tempo ===\n")
         jogos = self.api_football.listar_jogos_HT()
-        print(jogos)
         if jogos:
             for jogo in jogos:
                 logger.info("\n=== Listando jogos ao vivo no primeiro tempo 1H ===")
@@ -89,6 +88,7 @@ class TelegramBot:
                     # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
                     with app.app_context():
                         sse.publish({"message": "Jogo não satisfez os critérios"}, type='update')
+                        
         else:
             logger.info("Não há jogos ao vivo no momento.")
 

@@ -31,12 +31,13 @@ class APIFootball:
                 status_jogo = jogo["fixture"]["status"]["short"]
                 tempo_elapsed = jogo["fixture"]["status"]["elapsed"]
 
-                if status_jogo != "1H" or tempo_elapsed is not None or not (35 <= tempo_elapsed <= 45):
-                    continue
+                # Verificando se o jogo está no primeiro tempo e se o tempo está entre 35 e 45 minutos
+                if status_jogo == "1H" and (35 <= tempo_elapsed <= 45):
+                    print(tempo_elapsed)
+                    jogos_filtrados.append(jogo)
 
-                jogos_filtrados.append(jogo)
-        
         return jogos_filtrados  # Retornando os jogos filtrados
+
     
     def verificar_criterios(self, jogo):
         """

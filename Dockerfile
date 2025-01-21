@@ -17,4 +17,4 @@ COPY . /app/
 EXPOSE 8080
 
 # Definir o comando de execução do servidor
-CMD ["hypercorn", "bot:app", "--bind", "0.0.0.0:8080"]
+CMD ["python", "bot.py"]
