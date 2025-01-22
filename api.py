@@ -120,16 +120,21 @@ class APIFootball:
         return False
 
     def listar_jogos_do_dia(self):
-        print("\n=== Listando jogos programados para hoje (ainda não iniciados) ===\n")
+        print("\n=== Listando jogos das ligas específicas programados para hoje (ainda não iniciados) ===\n")
         headers = {
             'x-rapidapi-host': self.host,
             'x-rapidapi-key': self.api_key
         }
 
-        # Obtendo a data de hoje em formato YYYY-MM-DD no UTC
+        # IDs das ligas desejadas
+        league_ids = [6979, 6712, 6280, 6335, 6336, 6445, 6419, 6418, 6315, 6310, 6313, 6314, 6295, 6375, 
+                    6387, 6338, 6347, 6505, 6322, 6910, 6949, 6967, 6354, 6986, 6374, 6435, 6552, 6958, 
+                    6860, 6950, 7016, 7005, 6962, 6521]
+
+        # Obtendo a data de hoje no formato YYYY-MM-DD no UTC
         data_atual = datetime.now(pytz.utc).strftime("%Y-%m-%d")
 
-        # Realizando a requisição para pegar todos os jogos do dia
+        # Fazendo a requisição apenas para jogos do dia
         self.conn.request(f"GET", f"/fixtures?date={data_atual}", headers=headers)
         res = self.conn.getresponse()
         data = res.read()
@@ -149,6 +154,11 @@ class APIFootball:
 
                 # Filtrando apenas jogos que ainda não começaram (status "NS")
                 if status_jogo != "NS":
+                    continue
+
+                # Filtrando pelas ligas desejadas
+                id_liga = jogo["league"]["id"]
+                if id_liga not in league_ids:
                     continue
 
                 # Obtendo a data e hora do jogo
@@ -176,9 +186,10 @@ class APIFootball:
                     "fixture_id": fixture_id
                 })
         else:
-            print("Não há jogos programados para hoje.")
+            print("Não há jogos programados para hoje nas ligas específicas.")
         
         return jogos_do_dia
+
 
     def obter_odds(self, fixture_id):
         headers = {
