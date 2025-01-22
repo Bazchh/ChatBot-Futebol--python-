@@ -10,11 +10,18 @@ class APIFootball:
         self.conn = http.client.HTTPSConnection(self.host)
 
     def listar_jogos_HT(self):
-        print("\n=== Listando jogos ao vivo no primeiro tempo 1H ===\n")
+        print("\n=== Listando jogos ao vivo no primeiro tempo (1H) ===\n")
         headers = {
             'x-rapidapi-host': self.host,
             'x-rapidapi-key': self.api_key
         }
+
+        # IDs das ligas selecionadas
+        ligas_selecionadas = [
+            6979, 6712, 6280, 6335, 6336, 6445, 6419, 6418, 6315, 6310, 6313, 6314,
+            6295, 6375, 6387, 6338, 6347, 6505, 6322, 6910, 6949, 6967, 6354, 6986,
+            6374, 6435, 6552, 6958, 6860, 6950, 7016, 7005, 6962, 6521
+        ]
 
         # Realizando a requisição para pegar os jogos ao vivo
         self.conn.request("GET", "/fixtures?live=all", headers=headers)
@@ -24,19 +31,22 @@ class APIFootball:
         # Convertendo o dado JSON
         jogos = json.loads(data.decode("utf-8"))
         jogos_filtrados = []  # Lista para armazenar os jogos filtrados
+
         # Verificando e formatando os jogos
         if jogos["results"] > 0:
             for jogo in jogos["response"]:
                 # Verificando o status do jogo, apenas "1H" (primeiro tempo em andamento)
                 status_jogo = jogo["fixture"]["status"]["short"]
                 tempo_elapsed = jogo["fixture"]["status"]["elapsed"]
+                id_liga = jogo["league"]["id"]
 
-                # Verificando se o jogo está no primeiro tempo e se o tempo está entre 35 e 45 minutos
-                if status_jogo == "1H" and (35 <= tempo_elapsed <= 45):
-                    print(tempo_elapsed)
+                # Filtrar jogos que estão nas ligas selecionadas e no intervalo de tempo desejado
+                if status_jogo == "1H" and (35 <= tempo_elapsed <= 45) and id_liga in ligas_selecionadas:
+                    print(f"Jogo: {jogo['teams']['home']['name']} vs {jogo['teams']['away']['name']}, Minuto: {tempo_elapsed}")
                     jogos_filtrados.append(jogo)
 
         return jogos_filtrados  # Retornando os jogos filtrados
+
 
     
     def verificar_criterios(self, jogo):
