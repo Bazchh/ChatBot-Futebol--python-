@@ -60,18 +60,24 @@ class APIFootball:
         gols_casa = jogo["score"]["halftime"]["home"]
         gols_fora = jogo["score"]["halftime"]["away"]
 
-        # Critérios de jogo empatado em 0x0 ou 1x1
         if (gols_casa == 0 and gols_fora == 0) or (gols_casa == 1 and gols_fora == 1):
             odds = self.obter_odds(fixture_id)
+            print(f"Odds obtidas: {odds}")
             if odds:
-                if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
-                    chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
-                    if chances_favorito is not None and chances_favorito >= 0.75:
-                        return time_casa  # Time favorito é o mandante
-                elif self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
-                    chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
-                    if chances_favorito is not None and chances_favorito >= 0.75:
-                        return time_fora  # Time favorito é o visitante
+                if odds.get("home") <= 1.80:
+                    print(f"Odd do time da casa ({time_casa}): {odds['home']}")
+                    if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
+                        chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
+                        if chances_favorito is not None and chances_favorito >= 0.65:
+                            print(f"{time_casa} é o favorito com {chances_favorito*100:.2f}% de chances de gol no HT.")
+                            return time_casa
+                elif odds.get("away") <= 1.80:
+                    print(f"Odd do time visitante ({time_fora}): {odds['away']}")
+                    if self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
+                        chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
+                        if chances_favorito is not None and chances_favorito >= 0.65:
+                            print(f"{time_fora} é o favorito com {chances_favorito*100:.2f}% de chances de gol no HT.")
+                            return time_fora
 
         # Critérios de jogo 0x1 ou 1x0
         if gols_casa == 0 and gols_fora == 1:
@@ -79,7 +85,7 @@ class APIFootball:
             if odds and odds.get("home") <= 1.80:
                 if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
                     chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
-                    if chances_favorito is not None and chances_favorito >= 0.75:
+                    if chances_favorito is not None and chances_favorito >= 0.65:
                         return time_casa  # Time favorito é o mandante
 
         elif gols_casa == 1 and gols_fora == 0:
@@ -87,7 +93,7 @@ class APIFootball:
             if odds and odds.get("away") <= 1.80:
                 if self.posse_de_bola_suficiente(jogo, "away") and self.verificar_chutes(jogo, "away"):
                     chances_favorito = self.chances_de_gol_HT(time_casa, time_fora, jogo, jogo["fixture"]["date"])
-                    if chances_favorito is not None and chances_favorito >= 0.75:
+                    if chances_favorito is not None and chances_favorito >= 0.65:
                         return time_fora  # Time favorito é o visitante
 
         return None  # Nenhum time atende aos critérios
@@ -109,7 +115,7 @@ class APIFootball:
                         posse_bola = item["value"]
                         if posse_bola is not None:
                             posse_bola_num = float(posse_bola.replace('%', ''))
-                            if posse_bola_num >= 58:
+                            if posse_bola_num >= 55:
                                 return True
         return False
 
@@ -125,7 +131,7 @@ class APIFootball:
                 for item in estatisticas["statistics"]:
                     if item["type"] == "Total Shots":
                         chutes = item["value"]
-                        if chutes is not None and chutes >= 7:  # Verifica se o total de chutes é maior ou igual a 7
+                        if chutes is not None and chutes >= 6:  # Verifica se o total de chutes é maior ou igual a 7
                             return True
         return False
 
@@ -238,7 +244,7 @@ class APIFootball:
         }
 
         # Obtendo as estatísticas de gols do time favorito
-        self.conn.request(f"GET", f"/teams/statistics?season=2019&team={favorito_id}&league=39", headers=headers)
+        self.conn.request(f"GET", f"/teams/statistics?season={jogo['league']['season']}&team={favorito_id}&league={jogo['league']['id']}", headers=headers)
         res = self.conn.getresponse()
         data = res.read()
 
@@ -260,10 +266,6 @@ class APIFootball:
         probabilidade_primeiro_tempo = gols_primeiro_tempo / total_gols if total_gols > 0 else 0  # Probabilidade relativa aos gols totais
 
         print(f"Probabilidade de {favorito} marcar no primeiro tempo: {probabilidade_primeiro_tempo * 100:.2f}%")
-        
-        # Considerando também a posse de bola e os chutes para refinar a probabilidade
-        if self.posse_de_bola_suficiente(jogo, "home") and self.verificar_chutes(jogo, "home"):
-            probabilidade_primeiro_tempo += 0.10  # Aumenta a chance se o time tiver boa posse de bola e muitos chutes
 
         # Retornando a probabilidade final
         return min(probabilidade_primeiro_tempo, 1.0)  # Limita a probabilidade a 100%

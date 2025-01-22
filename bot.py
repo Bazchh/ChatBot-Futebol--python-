@@ -103,7 +103,7 @@ async def start_scheduler(api_football, telegram_bot):
     
     # Adiciona os jobs ao agendador
     scheduler.add_job(job_jogos_do_dia, "cron", hour=10, minute=0, args=[api_football, telegram_bot])
-    scheduler.add_job(job_monitorar, "interval", seconds=60, args=[api_football, telegram_bot])
+    scheduler.add_job(job_monitorar, "cron", minute="*",hour="10-23", args=[api_football, telegram_bot])
     
     # Inicia o agendador
     scheduler.start()
