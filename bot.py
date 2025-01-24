@@ -32,23 +32,27 @@ class TelegramBot:
 
     async def enviar_mensagem(self, mensagem):
         """Envia uma mensagem para o chat do Telegram, dividindo-a se for muito longa."""
-        try:
-            max_length = 4096  # Limite de caracteres permitido pelo Telegram
-            if len(mensagem) > max_length:
-                partes = [mensagem[i:i + max_length] for i in range(0, len(mensagem), max_length)]
-                for parte in partes:
-                    await self.bot.send_message(chat_id=self.chat_id, text=parte)
-                    logger.info(f"Mensagem enviada em partes para {self.chat_id}: {parte}")
-            else:
-                await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
-                logger.info(f"Mensagem enviada para {self.chat_id}: {mensagem}")
-        except Exception as e:
-            logger.error(f"Erro ao enviar mensagem: {e}")
+        if not mensagem.strip():  # Verifica se a mensagem está vazia ou composta apenas por espaços
+            logger.warning("A mensagem está vazia, não será enviada.")
+            return  # Retorna sem enviar a mensagem
+
+        max_length = 4096  # Limite de caracteres permitido pelo Telegram
+        if len(mensagem) > max_length:
+            partes = [mensagem[i:i + max_length] for i in range(0, len(mensagem), max_length)]
+            for parte in partes:
+                await self.bot.send_message(chat_id=self.chat_id, text=parte)
+                logger.info(f"Mensagem enviada em partes para {self.chat_id}: {parte}")
+        else:
+            await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
+            logger.info(f"Mensagem enviada para {self.chat_id}: {mensagem}")
+
+
 
     async def enviar_jogos_do_dia(self):
         """Busca e envia a lista de jogos do dia."""
         logger.info("\n=== Enviando jogos do dia ===\n")
         jogos = self.api_football.listar_jogos_do_dia()
+        print(jogos)
         if jogos:
             mensagem = "Football games today:\n"
             for jogo in jogos:
@@ -102,7 +106,7 @@ async def start_scheduler(api_football, telegram_bot):
     scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
     
     # Adiciona os jobs ao agendador
-    scheduler.add_job(job_jogos_do_dia, "cron", hour=10, minute=0, args=[api_football, telegram_bot])
+    scheduler.add_job(job_jogos_do_dia, "cron", hour=14, minute=22, args=[api_football, telegram_bot])
     scheduler.add_job(job_monitorar, "cron", minute="*",hour="10-23", args=[api_football, telegram_bot])
     
     # Inicia o agendador
@@ -130,9 +134,9 @@ def health_check():
 
 async def main():
     # Definir sua chave da API e token do Telegram
-    api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
-    telegram_token = "8195835290:AAHnsVeIY_fS_Nmi9tkKl_e9JskMoZ4y1Zk"  # Substitua com seu token do Telegram
-    chat_id = "-1002279145550"  # Substitua com o ID do chat para enviar as mensagens
+    api_key = "e7e8ac33ec48212efde2f402772858d4"  # Substitua com sua chave da API
+    telegram_token = "7948020728:AAEzjLZzu58hLD6_cruXS6BUtwKl48RnVz8"  # Substitua com seu token do Telegram
+    chat_id = "-1002440594973"  # Substitua com o ID do chat para enviar as mensagens
 
     # Inicializa a classe APIFootball
     api_football = APIFootball(api_key)

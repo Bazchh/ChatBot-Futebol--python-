@@ -18,9 +18,7 @@ class APIFootball:
 
         # IDs das ligas selecionadas
         ligas_selecionadas = [
-            6979, 6712, 6280, 6335, 6336, 6445, 6419, 6418, 6315, 6310, 6313, 6314,
-            6295, 6375, 6387, 6338, 6347, 6505, 6322, 6910, 6949, 6967, 6354, 6986,
-            6374, 6435, 6552, 6958, 6860, 6950, 7016, 7005, 6962, 6521
+            871,39,97,94,95,143,439,440,735,461,66,153,675,88,89,78,1034,218,484,197,736,209,599,1044,901,899,774,775,181,179,183,704,137,253,101,293,972,482,648,191,504,307, 667,810,129
         ]
 
         # Realizando a requisição para pegar os jogos ao vivo
@@ -35,11 +33,11 @@ class APIFootball:
         # Verificando e formatando os jogos
         if jogos["results"] > 0:
             for jogo in jogos["response"]:
+                print(jogo["league"]["id"])
                 # Verificando o status do jogo, apenas "1H" (primeiro tempo em andamento)
                 status_jogo = jogo["fixture"]["status"]["short"]
                 tempo_elapsed = jogo["fixture"]["status"]["elapsed"]
                 id_liga = jogo["league"]["id"]
-
                 # Filtrar jogos que estão nas ligas selecionadas e no intervalo de tempo desejado
                 if status_jogo == "1H" and (35 <= tempo_elapsed <= 45) and id_liga in ligas_selecionadas:
                     print(f"Jogo: {jogo['teams']['home']['name']} vs {jogo['teams']['away']['name']}, Minuto: {tempo_elapsed}")
@@ -133,9 +131,9 @@ class APIFootball:
         }
 
         # IDs das ligas desejadas
-        league_ids = [6979, 6712, 6280, 6335, 6336, 6445, 6419, 6418, 6315, 6310, 6313, 6314, 6295, 6375, 
-                    6387, 6338, 6347, 6505, 6322, 6910, 6949, 6967, 6354, 6986, 6374, 6435, 6552, 6958, 
-                    6860, 6950, 7016, 7005, 6962, 6521]
+        league_ids = [
+            871,39,97,94,95,143,439,440,735,461,66,153,675,88,89,78,1034,218,484,197,736,209,599,1044,901,899,774,775,181,179,183,704,137,253,101,293,972,482,648,191,504,307, 667,810,129
+        ]
 
         # Obtendo a data de hoje no formato YYYY-MM-DD no UTC
         data_atual = datetime.now(pytz.utc).strftime("%Y-%m-%d")
