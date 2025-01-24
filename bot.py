@@ -105,7 +105,7 @@ async def start_scheduler(api_football, telegram_bot):
     scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
     
     # Adiciona os jobs ao agendador
-    scheduler.add_job(job_jogos_do_dia, "cron", hour=14, minute=22, args=[api_football, telegram_bot])
+    scheduler.add_job(job_jogos_do_dia, "cron", hour=10, minute=0, args=[api_football, telegram_bot])
     scheduler.add_job(job_monitorar, "cron", minute="*",hour="10-23", args=[api_football, telegram_bot])
     
     # Inicia o agendador
