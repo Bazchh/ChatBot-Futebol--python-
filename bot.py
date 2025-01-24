@@ -52,7 +52,6 @@ class TelegramBot:
         """Busca e envia a lista de jogos do dia."""
         logger.info("\n=== Enviando jogos do dia ===\n")
         jogos = self.api_football.listar_jogos_do_dia()
-        print(jogos)
         if jogos:
             mensagem = "Football games today:\n"
             for jogo in jogos:
