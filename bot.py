@@ -133,7 +133,7 @@ def health_check():
 
 async def main():
     # Definir sua chave da API e token do Telegram
-    api_key = "e7e8ac33ec48212efde2f402772858d4"  # Substitua com sua chave da API
+    api_key = "49dcecff9c9746a678c6b2887af923b1"  # Substitua com sua chave da API
     telegram_token = "8195835290:AAHnsVeIY_fS_Nmi9tkKl_e9JskMoZ4y1Zk"  # Substitua com seu token do Telegram
     chat_id = "-1002279145550"  # Substitua com o ID do chat para enviar as mensagens
 
