@@ -9,7 +9,7 @@ class FootballAPI:
         self.host = "v3.football.api-sports.io"
         self.conn = http.client.HTTPSConnection(self.host)
 
-    def listar_jogos_HT(self, ligas_selecionadas):
+    def listar_jogos_HT(self):
         """Lista jogos que estão no intervalo desejado do primeiro tempo (30-45 minutos)."""
         headers = {
             'x-rapidapi-host': self.host,
@@ -19,7 +19,10 @@ class FootballAPI:
         self.conn.request("GET", "/fixtures?live=all", headers=headers)
         res = self.conn.getresponse()
         data = res.read()
-
+        ligas_selecionadas =  [
+            871, 39, 97, 94, 95, 143, 439, 440, 735, 461, 66, 153, 675, 88, 89, 78, 1034, 218, 484, 197, 736, 209, 599,
+            1044, 901, 899, 774, 775, 181, 179, 183, 704, 137, 253, 101, 293, 972, 482, 648, 191, 504, 307, 667, 810, 129
+        ]
         jogos = json.loads(data.decode("utf-8"))
         jogos_filtrados = []
 
