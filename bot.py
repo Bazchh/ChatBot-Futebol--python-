@@ -29,24 +29,22 @@ class TelegramBot:
         self.telegram_token = telegram_token
         self.chat_id = chat_id
         self.bot = Bot(token=self.telegram_token)
+        self.jogos_enviados = set()  # Cache para evitar mensagens duplicadas
 
     async def enviar_mensagem(self, mensagem):
         """Envia uma mensagem para o chat do Telegram, dividindo-a se for muito longa."""
-        if not mensagem.strip():  # Verifica se a mensagem está vazia ou composta apenas por espaços
-            logger.warning("A mensagem está vazia, não será enviada.")
-            return  # Retorna sem enviar a mensagem
-
-        max_length = 4096  # Limite de caracteres permitido pelo Telegram
-        if len(mensagem) > max_length:
-            partes = [mensagem[i:i + max_length] for i in range(0, len(mensagem), max_length)]
-            for parte in partes:
-                await self.bot.send_message(chat_id=self.chat_id, text=parte)
-                logger.info(f"Mensagem enviada em partes para {self.chat_id}: {parte}")
-        else:
-            await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
-            logger.info(f"Mensagem enviada para {self.chat_id}: {mensagem}")
-
-
+        try:
+            max_length = 4096  # Limite de caracteres permitido pelo Telegram
+            if len(mensagem) > max_length:
+                partes = [mensagem[i:i + max_length] for i in range(0, len(mensagem), max_length)]
+                for parte in partes:
+                    await self.bot.send_message(chat_id=self.chat_id, text=parte)
+                    logger.info(f"Mensagem enviada em partes para {self.chat_id}: {parte}")
+            else:
+                await self.bot.send_message(chat_id=self.chat_id, text=mensagem)
+                logger.info(f"Mensagem enviada para {self.chat_id}: {mensagem}")
+        except Exception as e:
+            logger.error(f"Erro ao enviar mensagem: {e}")
 
     async def enviar_jogos_do_dia(self):
         """Busca e envia a lista de jogos do dia."""
@@ -69,6 +67,12 @@ class TelegramBot:
         jogos = self.api_football.listar_jogos_HT()
         if jogos:
             for jogo in jogos:
+                fixture_id = jogo["fixture"]["id"]
+
+                # Verifica se o jogo já foi enviado
+                if fixture_id in self.jogos_enviados:
+                    continue  # Ignora jogos já processados
+
                 logger.info("\n=== Listando jogos ao vivo no primeiro tempo 1H ===")
                 time_favorito = self.api_football.verificar_criterios(jogo)  # Obter o time favorito
                 if time_favorito:  # Se houver um time favorito que atenda aos critérios
@@ -83,19 +87,17 @@ class TelegramBot:
                     )
                     await self.enviar_mensagem(aposta)
 
-                    # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
+                    # Marca o jogo como enviado
+                    self.jogos_enviados.add(fixture_id)
                 else:
                     logger.info("Jogo não satisfez os critérios")
-                    # Envia a mensagem de atualização via SSE dentro do contexto da aplicação Flask
-                        
         else:
             logger.info("Não há jogos ao vivo no momento.")
-
 
 async def job_jogos_do_dia(api_football, telegram_bot):
     """Executa os jobs do bot."""
     await telegram_bot.enviar_jogos_do_dia()
-    
+
 async def job_monitorar(api_football, telegram_bot):
     """Executa os jobs do bot."""
     await telegram_bot.monitorar_jogos()
@@ -103,18 +105,17 @@ async def job_monitorar(api_football, telegram_bot):
 async def start_scheduler(api_football, telegram_bot):
     """Inicia o agendador para executar jobs."""
     scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
-    
+
     # Adiciona os jobs ao agendador
     scheduler.add_job(job_jogos_do_dia, "cron", hour=10, minute=0, args=[api_football, telegram_bot])
-    scheduler.add_job(job_monitorar, "cron", minute="*",hour="10-23", args=[api_football, telegram_bot])
-    
+    scheduler.add_job(job_monitorar, "cron", minute="*", hour="10-23", args=[api_football, telegram_bot])
+
     # Inicia o agendador
     scheduler.start()
 
     # Mantém o agendador rodando indefinidamente
     while True:
         await asyncio.sleep(10)  # Dorme por 60 segundos, mas mantém o agendador ativo
-
 
 @app.route("/events")
 def events():
@@ -156,4 +157,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
