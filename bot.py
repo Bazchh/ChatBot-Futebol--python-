@@ -7,7 +7,7 @@ from flask_sse import sse
 sys.path.append("..")  # Adiciona o diretório pai ao caminho de importação
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
-from api import APIFootball  # Certifique-se de que APIFootball esteja configurada corretamente
+from api import FootballAPI  # Certifique-se de que FootballAPI esteja configurada corretamente
 import os
 from pytz import timezone
 from hypercorn.config import Config
@@ -102,11 +102,6 @@ async def job_monitorar(api_football, telegram_bot):
     """Executa os jobs do bot."""
     await telegram_bot.monitorar_jogos()
 
-async def job_limpar_cache():
-    """Limpa o cache de mensagens enviadas."""
-    mensagens_enviadas.clear()
-    logger.info("Cache de mensagens enviadas limpo.")
-
 async def start_scheduler(api_football, telegram_bot):
     """Inicia o agendador para executar jobs."""
     scheduler = AsyncIOScheduler(timezone=timezone('Europe/London'))
@@ -114,16 +109,13 @@ async def start_scheduler(api_football, telegram_bot):
     # Adiciona os jobs ao agendador
     scheduler.add_job(job_jogos_do_dia, "cron", hour=10, minute=0, args=[api_football, telegram_bot])
     scheduler.add_job(job_monitorar, "cron", minute="*", hour="10-23", args=[api_football, telegram_bot])
-    
-    # Job para limpar o cache, configure o horário desejado (exemplo: meia-noite)
-    scheduler.add_job(job_limpar_cache, "cron", hour=0, minute=0)  # Modifique o horário aqui
 
     # Inicia o agendador
     scheduler.start()
 
     # Mantém o agendador rodando indefinidamente
     while True:
-        await asyncio.sleep(10)  # Dorme por 10 segundos, mas mantém o agendador ativo
+        await asyncio.sleep(10)  # Dorme por 60 segundos, mas mantém o agendador ativo
 
 @app.route("/events")
 def events():
@@ -146,8 +138,8 @@ async def main():
     telegram_token = "8195835290:AAHnsVeIY_fS_Nmi9tkKl_e9JskMoZ4y1Zk"  # Substitua com seu token do Telegram
     chat_id = "-1002279145550"  # Substitua com o ID do chat para enviar as mensagens
 
-    # Inicializa a classe APIFootball
-    api_football = APIFootball(api_key)
+    # Inicializa a classe FootballAPI
+    api_football = FootballAPI(api_key)
 
     # Inicializa a classe TelegramBot
     telegram_bot = TelegramBot(api_football, telegram_token, chat_id)
