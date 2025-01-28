@@ -112,7 +112,7 @@ class FootballAPI:
                 if hora_utc < hora_atual_utc:
                     continue
 
-                hora_brasilia = hora_utc.astimezone(pytz.timezone('America/Sao_Paulo')).strftime("%H:%M")
+                hora_londres = hora_utc.astimezone(pytz.timezone('Europe/London')).strftime("%H:%M")
                 time_casa = jogo["teams"]["home"]["name"]
                 time_fora = jogo["teams"]["away"]["name"]
                 fixture_id = jogo["fixture"]["id"]
@@ -120,7 +120,7 @@ class FootballAPI:
                 jogos_do_dia.append({
                     "time_casa": time_casa,
                     "time_fora": time_fora,
-                    "hora_jogo": hora_brasilia,
+                    "hora_jogo": hora_londres,
                     "fixture_id": fixture_id
                 })
         return jogos_do_dia
