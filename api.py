@@ -89,16 +89,15 @@ class FootballAPI:
         self.conn.request("GET", f"/fixtures?date={data_atual}", headers=headers)
         res = self.conn.getresponse()
         data = res.read()
-
         jogos = json.loads(data.decode("utf-8"))
         hora_atual_utc = datetime.now(pytz.utc)
-
         jogos_do_dia = []
 
         if jogos["results"] > 0:
             for jogo in jogos["response"]:
+                
                 status_jogo = jogo["fixture"]["status"]["short"]
-
+                
                 if status_jogo != "NS":
                     continue
 
@@ -114,7 +113,6 @@ class FootballAPI:
                     continue
 
                 hora_brasilia = hora_utc.astimezone(pytz.timezone('America/Sao_Paulo')).strftime("%H:%M")
-
                 time_casa = jogo["teams"]["home"]["name"]
                 time_fora = jogo["teams"]["away"]["name"]
                 fixture_id = jogo["fixture"]["id"]
@@ -125,7 +123,6 @@ class FootballAPI:
                     "hora_jogo": hora_brasilia,
                     "fixture_id": fixture_id
                 })
-
         return jogos_do_dia
 
     def obter_odds(self, fixture_id):
