@@ -50,6 +50,7 @@ class TelegramBot:
         """Busca e envia a lista de jogos do dia."""
         logger.info("\n=== Enviando jogos do dia ===\n")
         jogos = self.api_football.listar_jogos_do_dia()
+        
         if jogos:
             mensagem = "Football games today:\n"
             for jogo in jogos:
@@ -57,6 +58,7 @@ class TelegramBot:
                 time_fora = jogo.get("time_fora", "Desconhecido")
                 hora_jogo = jogo.get("hora_jogo", "Data não disponível")
                 mensagem += f"{time_casa} x {time_fora} - Time: {hora_jogo}\n"
+                print(mensagem)
             await self.enviar_mensagem(mensagem)
         else:
             logger.info("Não há jogos para hoje.")
